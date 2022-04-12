@@ -1,0 +1,88 @@
+<!DOCTYPE html><html lang="zh-Hans"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta name="description" content="Attention"><meta name="keywords" content="计算机视觉,attention"><meta name="author" content="re-burn"><meta name="copyright" content="re-burn"><title>Attention | re-burn 笔记堆</title><link rel="shortcut icon" href="/melody-favicon.ico"><link rel="stylesheet" href="/css/index.css?version=1.9.0"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/font-awesome@latest/css/font-awesome.min.css?version=1.9.0"><meta name="format-detection" content="telephone=no"><meta http-equiv="x-dns-prefetch-control" content="on"><link rel="dns-prefetch" href="https://cdn.jsdelivr.net"><meta http-equiv="Cache-Control" content="no-transform"><meta http-equiv="Cache-Control" content="no-siteapp"><script>var GLOBAL_CONFIG = { 
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  hexoVersion: '6.1.0'
+} </script><!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/hexo-math@4.0.0/dist/style.css">
+<!-- hexo injector head_end end --><meta name="generator" content="Hexo 6.1.0"></head><body><i class="fa fa-arrow-right" id="toggle-sidebar" aria-hidden="true"></i><div id="sidebar" data-display="true"><div class="toggle-sidebar-info text-center"><span data-toggle="切换文章详情">切换站点概览</span><hr></div><div class="sidebar-toc"><div class="sidebar-toc__title">目录</div><div class="sidebar-toc__progress"><span class="progress-notice">你已经读了</span><span class="progress-num">0</span><span class="progress-percentage">%</span><div class="sidebar-toc__progress-bar"></div></div><div class="sidebar-toc__content"><ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%A3%E7%A0%81%EF%BC%9A"><span class="toc-number">1.</span> <span class="toc-text">代码：</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%BC%95%E5%85%A5-Attention-%E6%9C%BA%E5%88%B6%EF%BC%9F"><span class="toc-number">2.</span> <span class="toc-text">1 为什么要引入 Attention 机制？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-Encoder-Decoder-%E6%A1%86%E6%9E%B6"><span class="toc-number">3.</span> <span class="toc-text">2 Encoder-Decoder 框架</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-Soft-Attention-%E6%A8%A1%E5%9E%8B"><span class="toc-number">4.</span> <span class="toc-text">3 Soft Attention 模型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-Attention-%E6%9C%BA%E5%88%B6%E7%9A%84%E6%9C%AC%E8%B4%A8"><span class="toc-number">5.</span> <span class="toc-text">4 Attention 机制的本质</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-Self-Attention-%E6%A8%A1%E5%9E%8B"><span class="toc-number">6.</span> <span class="toc-text">5 Self Attention 模型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-%E6%80%BB%E7%BB%93"><span class="toc-number">7.</span> <span class="toc-text">6 总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#attention%E5%92%8C%E5%85%A8%E8%BF%9E%E6%8E%A5%E5%B1%82%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="toc-number">8.</span> <span class="toc-text">attention和全连接层的区别</span></a></li></ol></div></div><div class="author-info hide"><div class="author-info__avatar text-center"><img src="/img/avatar.png"></div><div class="author-info__name text-center">re-burn</div><div class="author-info__description text-center"></div><hr><div class="author-info-articles"><a class="author-info-articles__archives article-meta" href="/archives"><span class="pull-left">文章</span><span class="pull-right">8</span></a><a class="author-info-articles__tags article-meta" href="/tags"><span class="pull-left">标签</span><span class="pull-right">9</span></a><a class="author-info-articles__categories article-meta" href="/categories"><span class="pull-left">分类</span><span class="pull-right">4</span></a></div></div></div><div id="content-outer"><div class="no-bg" id="top-container"><div id="page-header"><span class="pull-left"> <a id="site-name" href="/">re-burn 笔记堆</a></span><i class="fa fa-bars toggle-menu pull-right" aria-hidden="true"></i><span class="pull-right menus">   <a class="site-page" href="/">Home</a><a class="site-page" href="/archives">Archives</a><a class="site-page" href="/tags">Tags</a><a class="site-page" href="/categories">Categories</a></span><span class="pull-right"></span></div><div id="post-info"><div id="post-title">Attention</div><div id="post-meta"><time class="post-meta__date"><i class="fa fa-calendar" aria-hidden="true"></i> 2022-04-12</time><span class="post-meta__separator">|</span><i class="fa fa-inbox post-meta__icon" aria-hidden="true"></i><a class="post-meta__categories" href="/categories/%E6%97%A5%E5%B8%B8%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">日常学习笔记</a><i class="fa fa-angle-right" aria-hidden="true"></i><i class="fa fa-inbox post-meta__icon" aria-hidden="true"></i><a class="post-meta__categories" href="/categories/%E6%97%A5%E5%B8%B8%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a></div></div></div><div class="layout" id="content-inner"><article id="post"><div class="article-container" id="post-content"><h3 id="代码："><a href="#代码：" class="headerlink" title="代码："></a>代码：</h3><p><a target="_blank" rel="noopener" href="https://github.com/xmu-xiaoma666/External-Attention-pytorch">xmu-xiaoma666&#x2F;External-Attention-pytorch: 🍀 Pytorch implementation of various Attention Mechanisms, MLP, Re-parameter, Convolution, which is helpful to further understand papers.⭐⭐⭐ (github.com)</a></p>
+<h3 id="1-为什么要引入-Attention-机制？"><a href="#1-为什么要引入-Attention-机制？" class="headerlink" title="1 为什么要引入 Attention 机制？"></a>1 为什么要引入 Attention 机制？</h3><p>当我们用深度 CNN 模型识别图像时，一般是通过卷积核去提取图像的局部信息，然而，每个局部信息对图像能否被正确识别的影响力是不同的，如何让模型知道图像中不同局部信息的重要性呢？答案就是注意力机制。</p>
+<p>试想，如果每个局部信息都不放过，那么必然耗费很多精力，不利于人类的生存进化。同样地，在深度学习网络中引入类似的机制，可以<strong>简化模型，加速计算</strong>。</p>
+<p>另外，利用循环神经网络去处理 NLP 任务时，<strong>长距离“记忆”能力一直是个大难题，而引入“注意力机制”也能有效缓解这一问题。</strong></p>
+<h3 id="2-Encoder-Decoder-框架"><a href="#2-Encoder-Decoder-框架" class="headerlink" title="2 Encoder-Decoder 框架"></a>2 Encoder-Decoder 框架</h3><p>注意力模型可以看作一种通用的思想，本森并不依赖于特定的框架，但目前大多数模型附着在Encoder-Decoder框架下，因此先从Encoder-Decoder框架开始讨论。</p>
+<p>常见的深度学习模型有 CNN、RNN、LSTM、AE 等，其实都可以归为一种通用框架 - Encoder-Decoder.</p>
+<p><img src="https://pic1.zhimg.com/80/v2-ac1a731879cc23c12e48bd7f16bb22c4_720w.jpg" alt="encoder-decoder"></p>
+<p>在文本处理领域，有一类常见的任务就是从一个句子（Source）生成另一个句子（Target），比如翻译，其中 <strong>xi</strong> 是输入单词的向量表示，<strong>yi</strong> 表示输出单词。</p>
+<p><img src="https://pic1.zhimg.com/80/v2-ad908951ac78a46794d318393aff6d98_720w.jpg" alt="img"></p>
+<p>Source 经过 Encoder，生成中间的语义编码 <strong>C</strong>，</p>
+<p><img src="https://pic3.zhimg.com/80/v2-9ee51cdd6c504ee06f9d302ae696f136_720w.jpg" alt="img"></p>
+<p>C 经过 Decoder 之后，输出翻译后的句子。在循环神经网络中，先根据 <strong>C</strong> 生成 <strong>y1</strong>，再基于（<strong>C，y1</strong>）生成 <strong>y2</strong>，依此类推。</p>
+<p><img src="https://pic3.zhimg.com/80/v2-92ddbfa766f17268af80a76dd6be974a_720w.jpg" alt="img"></p>
+<h3 id="3-Soft-Attention-模型"><a href="#3-Soft-Attention-模型" class="headerlink" title="3 Soft Attention 模型"></a>3 Soft Attention 模型</h3><p><img src="https://pic1.zhimg.com/80/v2-29c7b6c7552f60c5039856077aa50a54_720w.jpg" alt="img">RNN 模型</p>
+<p>传统的循环神经网络中，<strong>y1</strong>、<strong>y2</strong> 和 <strong>y3</strong> 的计算都是基于同一个 <strong>C</strong>. 深入思考一下，发现这可能并不是最好的方案，因为 Source 中不同单词对 <strong>y1</strong>、<strong>y2</strong> 和 <strong>y3</strong> 的影响是不同的，所以，很自然地就有了如下思路：</p>
+<p><img src="https://pic2.zhimg.com/80/v2-7260651c60d95f617fe9a918132f4585_720w.jpg" alt="img">引入注意力机制的 Encoder-Decoder 框架</p>
+<p><strong>上述改良模型中的 C1、C2、C3</strong> <strong>是怎么计算的呢？</strong>其实也非常简单，就是在计算 <strong>C1</strong>、<strong>C2</strong> 和 <strong>C3</strong> 时，分别使用不同的权重向量：</p>
+<p><img src="https://pic3.zhimg.com/80/v2-1661a288d50be24fad370cf41e284156_720w.jpg" alt="img"></p>
+<p>上述公式中的权重向量 (a11, a12, a13)、(a21, a22, a23)、(a31, a32, a33) 又是如何计算的呢？请看下图。</p>
+<p><img src="https://pic1.zhimg.com/80/v2-76fecb2c6aec26c63e5db808469611b0_720w.jpg" alt="img">注意力分配的概率计算</p>
+<p>上述模型中： <strong>h1</strong> &#x3D; f(Tom)、<strong>h2</strong> &#x3D; f(<strong>h1</strong>, Chase)、<strong>h3</strong> &#x3D; f(<strong>h2</strong>, Jerry).</p>
+<p>当计算出 <strong>Hi-1</strong> 之后，通过函数 F(<strong>hj</strong>,<strong>Hi-1</strong>) 获得输入语句中不同单词（Tom、Chase、Jerry）对目标单词 <strong>yi</strong> 的影响力，F 的输出再经过 Softmax 进行归一化就得到了符合概率分布取值区间的注意力分配概率。其中，F 函数的实现方法有多种，比如余弦相似度、MLP 等。</p>
+<p><img src="https://pic2.zhimg.com/80/v2-114439489a6c0dfa037521ded6a096c5_720w.jpg" alt="img">Google 神经网络机器翻译系统结构图</p>
+<h3 id="4-Attention-机制的本质"><a href="#4-Attention-机制的本质" class="headerlink" title="4 Attention 机制的本质"></a>4 Attention 机制的本质</h3><p>现在，请你把 Source 想象成是内存里的一块存储空间，它里面存储的数据按 &lt;Key, Value&gt; 存储。给定 Query，然后取出对应的内容。<strong>这里与一般的 hash 查询方式不同的是，每个地址都只取一部分内容，然后对所有的 Value 加权求和。</strong></p>
+<p><img src="https://pic3.zhimg.com/80/v2-bdab75088ba037b48db6a5a85f62941a_720w.jpg" alt="img">Attention 的实质：软寻址（soft addressing）</p>
+<p>公式描述如下：</p>
+<p><img src="https://pic3.zhimg.com/80/v2-6f9d9ec94f3b5e05d4ab964cefb405da_720w.jpg" alt="img"></p>
+<p>Attention 的计算可以分成如下三个阶段：</p>
+<p><img src="https://pic1.zhimg.com/80/v2-f52572cd150732703a97d6a92305244c_720w.jpg" alt="img">三阶段计算 Attention 过程</p>
+<p><img src="https://pic2.zhimg.com/80/v2-b56ff5ce9327999ed1dde2da04fa3bc9_720w.jpg" alt="img"></p>
+<p>注意力打分机制</p>
+<p><img src="https://pic4.zhimg.com/80/v2-6ed835d05761d8988e74219ba381b38b_720w.jpg" alt="img"></p>
+<p>归一化的注意力概率分配</p>
+<p><img src="https://pic4.zhimg.com/80/v2-6e982a357c11c6c92058ea388148a3c7_720w.jpg" alt="img"></p>
+<p>上述公式中的 <em>Lx</em> 表示输入语句的长度。上一节的例子中，Key 是等于 Value 的。</p>
+<h3 id="5-Self-Attention-模型"><a href="#5-Self-Attention-模型" class="headerlink" title="5 Self Attention 模型"></a>5 Self Attention 模型</h3><p><img src="https://pic1.zhimg.com/80/v2-54d5f264438195cf41f569b3f1167880_720w.jpg" alt="img">可视化 Self Attention 例子</p>
+<p>在 Soft Attention 模型中，Source 和输出 Target 的内容是不同的，比如中-英机器翻译，Source 对应中文语句，Target 对应英文语句。</p>
+<p>现在有另一个任务，如上图所示：给定一个句子和句子中某个单词 making，如何找出与 making 强相关的其他单词呢？比如上图中的 more difficult（因为它们和 making 可以组成一个短语）.</p>
+<p>这就用到了 Self Attention 机制，顾名思义，指的是 Source 内部元素之间或者 Target 内部元素之间发生的 Attention 机制，也可以理解为 Source &#x3D; Target 这种特殊情况下的 Attention 机制，具体计算过程和 Soft Attention 是一样的。</p>
+<h3 id="6-总结"><a href="#6-总结" class="headerlink" title="6 总结"></a>6 总结</h3><p>下图展示了注意力机制如何在图片描述任务（Image-Caption）中发挥作用的。</p>
+<p>图片描述任务，就是给你一张图片，请输出一句话去描述它。一般会用 CNN 来对图片进行特征提取，Decoder 部分使用 RNN 或者 LSTM 来输出描述语句。此时如果加入注意力机制，能够大大改善输出效果。</p>
+<p><img src="https://pic4.zhimg.com/80/v2-3251b16a739ff649c4c13e217c2f73eb_720w.jpg" alt="img">图片描述任务中的注意力机制</p>
+<p>另外，在语音识别、目标物体检测等领域，注意力机制同样取得了很好的效果。</p>
+<p>实际上，<strong>Attention 机制听起来高大上，其关键就是学出一个权重分布，然后作用在特征上</strong>。</p>
+<ul>
+<li>这个权重可以保留所有的分量，叫加权（Soft Attention），也可以按某种采样策略选取部分分量（Hard Attention）。</li>
+<li>这个权重可以作用在原图上，如目标物体检测；也可以作用在特征图上，如 Image-Caption</li>
+<li>这个权重可以作用在空间尺度上，也可以作用于 Channel 尺度上，给不同通道的特征加权</li>
+<li>这个权重可以作用在不同时刻上，如机器翻译</li>
+</ul>
+<h3 id="attention和全连接层的区别"><a href="#attention和全连接层的区别" class="headerlink" title="attention和全连接层的区别"></a>attention和全连接层的区别</h3><p>从结果上看，Attention的最终输出可以看成是一个“在关注部分权重更大的全连接层”。但是它与全连接层的区别在于，注意力机制可以利用输入的特征信息来确定哪些部分更重要。</p>
+<p>举个例子：</p>
+<p>输入层有A,B,C三个特征向量，我们需要构造一层网络来确定三者的权重，然后加权求和得到输出O。也就是得到三个权重 <img src="https://www.zhihu.com/equation?tex=w_A,w_B,w_C" alt="[公式]"> ，然后得到 </p>
+<p><img src="https://www.zhihu.com/equation?tex=O=w_AA+w_BB+w_CC" alt="[公式]"> 。</p>
+<p>这个式子形式上看上去确实是全连接层没错。然而如果用全连接层有什么问题呢？</p>
+<p><strong>问题就在于在全连接层里， <img src="https://www.zhihu.com/equation?tex=w_A,w_B,w_C" alt="[公式]"> 是根据位置确定的。</strong>我第一次给你三个数据ABC，然后你得出了B最重要，也就是让 <img src="https://www.zhihu.com/equation?tex=w_B" alt="[公式]"> 最大。然而我下次给你的顺序可能是BAC，这次A在刚才B的位置，如果你用全连接层来实现的话，得出的结果就会变成 <img src="https://www.zhihu.com/equation?tex=O=w_AB+w_BA+w_CC" alt="[公式]"> 。这就变成了A最重要了，这显然不是我们想要的结果。</p>
+<p>那么如何解决这个问题呢？我们就要根据实体自身的特征，而不是它们的位置来确定它们的重要程度。也就是说， <img src="https://www.zhihu.com/equation?tex=w_A,w_B,w_C" alt="[公式]"> 不该是固定的，而是要与A,B,C的值相关。简单考虑，也就是要定义一个函数f，令</p>
+<p><img src="https://www.zhihu.com/equation?tex=w_A=f(A),w_B=f(B),w_C=f(C)" alt="[公式]"> 。</p>
+<p>于是我们就给每个实体分配了一个与它们的位置无关的权重。<strong>这里的函数f就是我们所说的注意力机制。</strong>注意力机制f的定义方式有很多种，但是不属于这个问题的范围，这里我就不讨论了。</p>
+<p>我们最终得出的输出为</p>
+<p><img src="https://www.zhihu.com/equation?tex=O=w_AA+w_BB+w_CC=f(A)A+f(B)B+f(C)C" alt="[公式]"> </p>
+<p>可以看出，最终整合信息时加权求和的形式没有变，所以可能是这样才让题主产生了注意力机制与全连接层没有区别的疑惑。然而事实上<strong>注意力机制的意义是引入了权重函数f，使得权重与输入相关，从而避免了全连接层中权重固定的问题。</strong></p>
+<p>全连接的作用的是对一个实体进行从一个特征空间到另一个特征空间的映射，而注意力机制是要对来自同一个特征空间的多个实体进行整合。</p>
+<p>实际上在实现方式上，Attention和全连接层可以说没有什么太大的区别。比如说，网络的第一层fc Layer，我们可以认为对于输入向量的不同维度给了一组不同的权重进行组合，然后将它们映射到另一个不同维度的向量空间。这组权重如果我们把它看做Attention机制的话，这组权重同样关注了不同的输入特征。甚至这个fc层和Attention机制区别只在于以下两点：</p>
+<ol>
+<li>同样是给予输入特征不同的权重进行更深层的网络学习，fc Layer只能是在整个网络的训练过程中得到，而基于Attention机制的Layer可以通过更多的方式去获得权重。</li>
+<li>Attention Layer目的在于关注局部信息，所以输出和输入是在同一个向量空间的。这一点同样表现在Attention Layer和fc Layer的连接方式上。</li>
+</ol>
+<p>除了Attention机制带来的可解释性外，目前很多研究是基于Attention机制获得了效果提升，而二者最本质区别甚至只在于向量空间。为什么Attention机制能起到作用呢？个人想法是，Attention可以看做给予网络输入部分一个更好的超参数。<strong>传统的网络同样能够做到关注输入特征的局部信息，而Attention把关注局部信息这一重要部分单独进行设计，减少了整个网络的压力，使网络无需在输入特征的重要程度上下功夫，相对来说更多地关注了特征与结果的联系。</strong>简单来说，把网络看成你在做作业题。当你读题和解题的时候，会对题目描述的不同部分进行不同程度的关注，然后进行解题。但如果有人进行了题干分析，让你直接了解了题目描述哪些部分更重要时，那么做对的几率就会高好多。<strong>Attention机制和全连接层的差别，本质在于，让你费更少的力气读题，更多地去解题。</strong></p>
+</div></article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="mailto:undefined">re-burn</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a href="https://re-burn.github.io/2022/04/12/attention/">https://re-burn.github.io/2022/04/12/attention/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a target="_blank" rel="noopener" href="https://creativecommons.org/licenses/by-nc-sa/4.0/">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://re-burn.github.io">re-burn 笔记堆</a>！</span></div></div><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a><a class="post-meta__tags" href="/tags/attention/">attention</a></div><nav id="pagination"><div class="prev-post pull-left"><a href="/2022/04/12/I3D/"><i class="fa fa-chevron-left">  </i><span>Two-Stream Inflated 3D ConvNets</span></a></div><div class="next-post pull-right"><a href="/2022/04/03/%E7%AC%AC%E4%B8%80%E7%AB%A0-%E5%9F%BA%E7%A1%80%E7%AE%97%E6%B3%95/"><span>第一章-基础算法</span><i class="fa fa-chevron-right"></i></a></div></nav></div></div><footer><div class="layout" id="footer"><div class="copyright">&copy;2013 - 2022 By re-burn</div><div class="framework-info"><span>驱动 - </span><a target="_blank" rel="noopener" href="http://hexo.io"><span>Hexo</span></a><span class="footer-separator">|</span><span>主题 - </span><a target="_blank" rel="noopener" href="https://github.com/Molunerfinn/hexo-theme-melody"><span>Melody</span></a></div><div class="busuanzi"><script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script><span id="busuanzi_container_page_pv"><i class="fa fa-file"></i><span id="busuanzi_value_page_pv"></span><span></span></span></div></div></footer><i class="fa fa-arrow-up" id="go-up" aria-hidden="true"></i><script src="https://cdn.jsdelivr.net/npm/animejs@latest/anime.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jquery@latest/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@latest/dist/jquery.fancybox.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-animate@latest/velocity.min.js"></script><script src="https://cdn.jsdelivr.net/npm/velocity-ui-pack@latest/velocity.ui.min.js"></script><script src="/js/utils.js?version=1.9.0"></script><script src="/js/fancybox.js?version=1.9.0"></script><script src="/js/sidebar.js?version=1.9.0"></script><script src="/js/copy.js?version=1.9.0"></script><script src="/js/fireworks.js?version=1.9.0"></script><script src="/js/transition.js?version=1.9.0"></script><script src="/js/scroll.js?version=1.9.0"></script><script src="/js/head.js?version=1.9.0"></script><script>if(/Android|webOS|iPhone|iPod|iPad|BlackBerry/i.test(navigator.userAgent)) {
+  $('#nav').addClass('is-mobile')
+  $('footer').addClass('is-mobile')
+  $('#top-container').addClass('is-mobile')
+}</script></body></html>
