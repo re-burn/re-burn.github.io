@@ -64,11 +64,11 @@
 </ul>
 <h3 id="attention和全连接层的区别"><a href="#attention和全连接层的区别" class="headerlink" title="attention和全连接层的区别"></a>attention和全连接层的区别</h3><p>从结果上看，Attention的最终输出可以看成是一个“在关注部分权重更大的全连接层”。但是它与全连接层的区别在于，注意力机制可以利用输入的特征信息来确定哪些部分更重要。</p>
 <p>举个例子：</p>
-<p>输入层有A,B,C三个特征向量，我们需要构造一层网络来确定三者的权重，然后加权求和得到输出O。也就是得到三个权重 <img src="https://www.zhihu.com/equation?tex=w_A,w_B,w_C" alt="[公式]"> ，然后得到 </p>
+<p>输入层有A,B,C三个特征向量，我们需要构造一层网络来确定三者的权重，然后加权求和得到输出O。也就是得到三个权重 $$ w_A, w_B, w_C $$ ，然后得到 </p>
 <p><img src="https://www.zhihu.com/equation?tex=O=w_AA+w_BB+w_CC" alt="[公式]"> 。</p>
 <p>这个式子形式上看上去确实是全连接层没错。然而如果用全连接层有什么问题呢？</p>
-<p><strong>问题就在于在全连接层里， <img src="https://www.zhihu.com/equation?tex=w_A,w_B,w_C" alt="[公式]"> 是根据位置确定的。</strong>我第一次给你三个数据ABC，然后你得出了B最重要，也就是让 <img src="https://www.zhihu.com/equation?tex=w_B" alt="[公式]"> 最大。然而我下次给你的顺序可能是BAC，这次A在刚才B的位置，如果你用全连接层来实现的话，得出的结果就会变成 <img src="https://www.zhihu.com/equation?tex=O=w_AB+w_BA+w_CC" alt="[公式]"> 。这就变成了A最重要了，这显然不是我们想要的结果。</p>
-<p>那么如何解决这个问题呢？我们就要根据实体自身的特征，而不是它们的位置来确定它们的重要程度。也就是说， <img src="https://www.zhihu.com/equation?tex=w_A,w_B,w_C" alt="[公式]"> 不该是固定的，而是要与A,B,C的值相关。简单考虑，也就是要定义一个函数f，令</p>
+<p><strong>问题就在于在全连接层里， $$ w_A, w_B, w_C $$  是根据位置确定的。</strong>我第一次给你三个数据ABC，然后你得出了B最重要，也就是让 $$w_B$$ 最大。然而我下次给你的顺序可能是BAC，这次A在刚才B的位置，如果你用全连接层来实现的话，得出的结果就会变成 <img src="https://www.zhihu.com/equation?tex=O=w_AB+w_BA+w_CC" alt="[公式]"> 。这就变成了A最重要了，这显然不是我们想要的结果。</p>
+<p>那么如何解决这个问题呢？我们就要根据实体自身的特征，而不是它们的位置来确定它们的重要程度。也就是说，  $$ w_A, w_B, w_C $$ 不该是固定的，而是要与A,B,C的值相关。简单考虑，也就是要定义一个函数f，令</p>
 <p><img src="https://www.zhihu.com/equation?tex=w_A=f(A),w_B=f(B),w_C=f(C)" alt="[公式]"> 。</p>
 <p>于是我们就给每个实体分配了一个与它们的位置无关的权重。<strong>这里的函数f就是我们所说的注意力机制。</strong>注意力机制f的定义方式有很多种，但是不属于这个问题的范围，这里我就不讨论了。</p>
 <p>我们最终得出的输出为</p>

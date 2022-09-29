@@ -17,50 +17,54 @@
 <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>模型压缩：在深度学习的背景下，为了达到更好的预测，常常会有两种方案：1. 使用过参数化的深度神经网络，这类网络学习能力非常强，因此往往加上一定的正则化策略(如dropout)；2. 集成模型(ensemble)，将许多弱的模型集成起来，往往可以实现较好的预测。这两种方案无疑都有较大的「支出」，需要的计算量和计算资源很大，对部署非常不利。这也就是模型压缩的动机：我们希望有一个规模较小的模型，能达到和大模型一样或相当的结果。当然，从头训练一个小模型，从经验上看是很难达到上述效果的，也许我们能先训练一个大而强的模型，然后将其包含的知识转移给小的模型</p>
 <p>Rich Caruana等人在[1]中指出，可以让新模型近似(approximate)原模型(模型即函数)。注意到，在机器学习中，我们常常假定输入到输出有一个潜在的函数关系，这个函数是未知的：从头学习一个新模型就是从<strong>有限的数据</strong>中近似一个<strong>未知的函数</strong>。如果让新模型近似原模型，因为原模型的<strong>函数是已知的</strong>，我们可以使用很多非训练集内的伪数据来训练新模型，这显然要更可行。</p>
 <p>这样，原来我们需要让新模型的softmax分布与真实标签匹配，现在只需要让新模型与原模型在给定输入下的softmax分布匹配了。直观来看，后者比前者具有这样一个优势：经过训练后的原模型，其softmax分布包含有一定的知识——真实标签只能告诉我们，某个图像样本是一辆宝马，不是一辆垃圾车，也不是一颗萝卜；而经过训练的softmax可能会告诉我们，它最可能是一辆宝马，不大可能是一辆垃圾车，但绝不可能是一颗萝卜</p>
-<h2 id="为什么叫「蒸馏」？"><a href="#为什么叫「蒸馏」？" class="headerlink" title="为什么叫「蒸馏」？"></a>为什么叫「蒸馏」？</h2><p>接续前面的讨论，我们的目标是让新模型与原模型的softmax输出的分布充分接近。直接这样做是有问题的：在一般的softmax函数中，自然指数 <img src="https://www.zhihu.com/equation?tex=e"> 先拉大logits之间的差距，然后作归一化，最终得到的分布是一个arg max的近似 ，其输出是一个接近one-hot的向量，其中一个值很大，其他的都很小。这种情况下，前面说到的「可能是垃圾车，但绝不是萝卜」这种知识的体现是非常有限的。相较类似one-hot这样的硬性输出，我们更希望输出更「软」一些。</p>
-<p>一种方法是直接比较logits来避免这个问题。具体地，对于每一条数据，记原模型产生的某个logits是 <img src="https://www.zhihu.com/equation?tex=v_i"> ，新模型产生的logits是 <img src="https://www.zhihu.com/equation?tex=z_i"> ，我们需要最小化</p>
-<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B1%7D%7B2%7D(z_i-v_i)%5E2%5Ctag%7B1%7D"></p>
+<h2 id="为什么叫「蒸馏」？"><a href="#为什么叫「蒸馏」？" class="headerlink" title="为什么叫「蒸馏」？"></a>为什么叫「蒸馏」？</h2><p>接续前面的讨论，我们的目标是让新模型与原模型的softmax输出的分布充分接近。直接这样做是有问题的：在一般的softmax函数中，自然指数 $$e$$ 先拉大logits之间的差距，然后作归一化，最终得到的分布是一个arg max的近似 ，其输出是一个接近one-hot的向量，其中一个值很大，其他的都很小。这种情况下，前面说到的「可能是垃圾车，但绝不是萝卜」这种知识的体现是非常有限的。相较类似one-hot这样的硬性输出，我们更希望输出更「软」一些。</p>
+<p>一种方法是直接比较logits来避免这个问题。具体地，对于每一条数据，记原模型产生的某个logits是 $$v_i$$ ，新模型产生的logits是  $$z_i$$，我们需要最小化</p>
+<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B1%7D%7B2%7D(z_i-v_i)%5E2%5Ctag%7B1%7D" alt="[公式]"></p>
 <p>文献[2]提出了更通用的一种做法。考虑一个广义的softmax函数</p>
-<p><img src="https://www.zhihu.com/equation?tex=q_i=%5Cfrac%7B%5Cexp(z_i/T)%7D%7B%5Csum_j%5Cexp(z_j/T)%7D%5Ctag%7B2%7D"></p>
-<p>其中 <img src="https://www.zhihu.com/equation?tex=T" alt="[公式]"> 是温度，这是从统计力学中的玻尔兹曼分布中借用的概念。容易证明，当温度 <img src="https://www.zhihu.com/equation?tex=T" alt="[公式]"> 趋向于0时，softmax输出将收敛为一个one-hot向量（证明可以参考我之前的文章：<a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/79585726">浅谈Softmax函数</a>，将 <img src="https://www.zhihu.com/equation?tex=%5Cbeta" alt="[公式]"> 替换为 <img src="https://www.zhihu.com/equation?tex=1/T" alt="[公式]"> 即可)；温度 <img src="https://www.zhihu.com/equation?tex=T" alt="[公式]"> 趋向于无穷时，softmax的输出则更「软」。因此，在训练新模型的时候，可以使用较高的 <img src="https://www.zhihu.com/equation?tex=T" alt="[公式]"> 使得softmax产生的分布足够软，这时让新模型（同样温度下）的softmax输出近似原模型；在训练结束以后再使用正常的温度 <img src="https://www.zhihu.com/equation?tex=T=1" alt="[公式]"> 来预测。具体地，在训练时我们需要最小化两个分布的交叉熵(Cross-entropy)，记新模型利用公式 <img src="https://www.zhihu.com/equation?tex=(2)" alt="[公式]"> 产生的分布是 <img src="https://www.zhihu.com/equation?tex=q" alt="[公式]"> ，原模型产生的分布是 <img src="https://www.zhihu.com/equation?tex=p" alt="[公式]"> ，则我们需要最小化</p>
-<p><img src="https://www.zhihu.com/equation?tex=C=-p%5E%5Ctop%5Clog+q%5Ctag%7B3%7D"></p>
-<p>在化学中，蒸馏是一个有效的分离沸点不同的组分的方法，大致步骤是先升温使低沸点的组分汽化，然后降温冷凝，达到分离出目标物质的目的。在前面提到的这个过程中，<strong>我们先让温度</strong> <img src="https://www.zhihu.com/equation?tex=T"> <strong>升高，然后在测试阶段恢复「低温」，从而将原模型中的知识提取出来，因此将其称为是蒸馏</strong>，实在是妙。</p>
-<p>当然，如果转移时使用的是有标签的数据，那么也可以将标签与新模型softmax分布的交叉熵加入到损失函数中去。这里需要将式 <img src="https://www.zhihu.com/equation?tex=(3)" alt="[公式]"> 乘上一个 <img src="https://www.zhihu.com/equation?tex=T%5E2"> ，这是为了让损失函数的两项的梯度大致在一个数量级上(参考公式 <img src="https://www.zhihu.com/equation?tex=(9)" alt="[公式]"> )，实验表明这将大大改善新模型的表现(考虑到加入了更多的监督信号)。</p>
-<h2 id="与直接优化logits差异相比"><a href="#与直接优化logits差异相比" class="headerlink" title="与直接优化logits差异相比"></a>与直接优化logits差异相比</h2><p>由公式 <img src="https://www.zhihu.com/equation?tex=(2)(3)" alt="[公式]"> ，对于交叉熵损失来说，其对于新模型的某个logit <img src="https://www.zhihu.com/equation?tex=z_i" alt="[公式]"> 的梯度是</p>
+<p><img src="https://www.zhihu.com/equation?tex=q_i=%5Cfrac%7B%5Cexp(z_i/T)%7D%7B%5Csum_j%5Cexp(z_j/T)%7D%5Ctag%7B2%7D" alt="[公式]"></p>
+<p>其中$$T$$是温度，这是从统计力学中的玻尔兹曼分布中借用的概念。容易证明，当温度 $$T$$趋向于0时，softmax输出将收敛为一个one-hot向量（证明可以参考我之前的文章：<a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/79585726">浅谈Softmax函数</a>，将$$\beta$$ 替换为 $$1 / T$$即可)；温度趋$$T$$向于无穷时，softmax的输出则更「软」。因此，在训练新模型的时候，可以使用较高的$$T$$使得softmax产生的分布足够软，这时让新模型（同样温度下）的softmax输出近似原模型；在训练结束以后再使用正常的温度$$T=1$$来预测。具体地，在训练时我们需要最小化两个分布的交叉熵(Cross-entropy)，记新模型利用公式(2)产生的分布是$$q$$，原模型产生的分布是，则我们需要最小化</p>
+<p><img src="https://www.zhihu.com/equation?tex=C=-p%5E%5Ctop%5Clog+q%5Ctag%7B3%7D" alt="[公式]"></p>
+<p>在化学中，蒸馏是一个有效的分离沸点不同的组分的方法，大致步骤是先升温使低沸点的组分汽化，然后降温冷凝，达到分离出目标物质的目的。在前面提到的这个过程中，<strong>我们先让温度</strong> $$T$$ <strong>升高，然后在测试阶段恢复「低温」，从而将原模型中的知识提取出来，因此将其称为是蒸馏</strong>，实在是妙。</p>
+<p>当然，如果转移时使用的是有标签的数据，那么也可以将标签与新模型softmax分布的交叉熵加入到损失函数中去。这里需要将式(3) 乘上一个$$T^2$$，这是为了让损失函数的两项的梯度大致在一个数量级上(参考公式 (9))，实验表明这将大大改善新模型的表现(考虑到加入了更多的监督信号)。</p>
+<h2 id="与直接优化logits差异相比"><a href="#与直接优化logits差异相比" class="headerlink" title="与直接优化logits差异相比"></a>与直接优化logits差异相比</h2><p>由公式(2)(3)，对于交叉熵损失来说，其对于新模型的某个logit $$z_i$$ 的梯度是</p>
 <p><img src="https://www.zhihu.com/equation?tex=%5Cbegin%7Balign%7D%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+z_i%7D&=%5Cfrac%7B1%7D%7BT%7D(q_i-p_i)%5Ctag%7B4%7D%5C%5C+&=%5Cfrac%7B1%7D%7BT%7D%5Cleft(%5Cfrac%7B%5Cexp(z_i/T)%7D%7B%5Csum_j%5Cexp(z_j/T)%7D-+%5Cfrac%7B%5Cexp(v_i/T)%7D%7B%5Csum_j%5Cexp(v_j/T)%7D%5Cright)%5Ctag%7B5%7D+%5Cend%7Balign%7D" alt="[公式]"></p>
-<p>由于 <img src="https://www.zhihu.com/equation?tex=e%5Ex-1" alt="[公式]"> 与 <img src="https://www.zhihu.com/equation?tex=x" alt="[公式]"> 是<strong>等价无穷小(</strong><img src="https://www.zhihu.com/equation?tex=x%5Crightarrow+0" alt="[公式]"> 时**)**，易知，当 <img src="https://www.zhihu.com/equation?tex=T" alt="[公式]"> 充分大时，有</p>
-<p><img src="https://www.zhihu.com/equation?tex=%5Cbegin%7Balign%7D%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+z_i%7D&%5Capprox%5Cfrac%7B1%7D%7BT%7D%5Cleft(%5Cfrac%7B1+z_i/T%7D%7B%5Csum_j(1+z_j/T)%7D-%5Cfrac%7B1+v_i/T%7D%7B%5Csum_j(1+v_j/T)%7D%5Cright)%5Ctag%7B6%7D%5C%5C+&=%5Cfrac%7B1%7D%7BT%7D%5Cleft(%5Cfrac%7B1+z_i/T%7D%7BN+%5Csum_jz_j/T%7D-%5Cfrac%7B1+v_i/T%7D%7BN+%5Csum_jv_j/T%7D%5Cright)%5Ctag%7B7%7D%5C%5C+%5Cend%7Balign%7D"></p>
+<p>由于$$ e^x-1$$ 与 $$x$$ 是<strong>等价无穷小(</strong>$$x \to 0$$ 时**)**，易知，当$$T$$充分大时，有</p>
+<p><img src="https://www.zhihu.com/equation?tex=%5Cbegin%7Balign%7D%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+z_i%7D&%5Capprox%5Cfrac%7B1%7D%7BT%7D%5Cleft(%5Cfrac%7B1+z_i/T%7D%7B%5Csum_j(1+z_j/T)%7D-%5Cfrac%7B1+v_i/T%7D%7B%5Csum_j(1+v_j/T)%7D%5Cright)%5Ctag%7B6%7D%5C%5C+&=%5Cfrac%7B1%7D%7BT%7D%5Cleft(%5Cfrac%7B1+z_i/T%7D%7BN+%5Csum_jz_j/T%7D-%5Cfrac%7B1+v_i/T%7D%7BN+%5Csum_jv_j/T%7D%5Cright)%5Ctag%7B7%7D%5C%5C+%5Cend%7Balign%7D" alt="[公式]"></p>
 <p>假设所有logits对每个样本都是零均值化的，即 <img src="https://www.zhihu.com/equation?tex=%5Csum_jz_j=%5Csum_jv_j=0" alt="[公式]"> ，则有</p>
 <p><img src="https://www.zhihu.com/equation?tex=%5Cbegin%7Balign%7D%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+z_i%7D&%5Capprox%5Cfrac%7B1%7D%7BT%7D%5Cleft(%5Cfrac%7B1+z_i/T%7D%7BN%7D-%5Cfrac%7B1+v_i/T%7D%7BN%7D%5Cright)%5Ctag%7B8%7D%5C%5C+&=%5Cfrac%7B1%7D%7BNT%5E2%7D%5Cleft(z_i-v_i%5Cright)%5Ctag%7B9%7D+%5Cend%7Balign%7D" alt="[公式]"></p>
-<p>所以，如果：1. <img src="https://www.zhihu.com/equation?tex=T" alt="[公式]"> 非常大，2. logits对所有样本都是零均值化的，则知识蒸馏和最小化logits的平方差(公式 <img src="https://www.zhihu.com/equation?tex=(1)" alt="[公式]"> )是等价的(因为梯度大致是同一个形式)。实验表明，温度 <img src="https://www.zhihu.com/equation?tex=T" alt="[公式]"> 不能取太大，而应该使用某个适中的值，这表明忽略极负的logits对新模型的表现很有帮助(较低的温度产生的分布比较「硬」，倾向于忽略logits中极小的负值)。</p>
+<p>所以，如果：1. $$T$$非常大，2. logits对所有样本都是零均值化的，则知识蒸馏和最小化logits的平方差(公式 (1) )是等价的(因为梯度大致是同一个形式)。实验表明，温度 $$T$$ 不能取太大，而应该使用某个适中的值，这表明忽略极负的logits对新模型的表现很有帮助(较低的温度产生的分布比较「硬」，倾向于忽略logits中极小的负值)。</p>
 <h2 id="实验与结论"><a href="#实验与结论" class="headerlink" title="实验与结论"></a>实验与结论</h2><p>Hinton等人做了三组实验，其中两组都验证了知识蒸馏方法的有效性。在MNIST数据集上的实验表明，即便有部分类别的样本缺失，新模型也可以表现得很不错，只需要修改相应的偏置项，就可以与原模型表现相当。在语音任务的实验也表明，蒸馏得到的模型比从头训练的模型捕捉了更多数据集中的有效信息，表现仅比集成模型低了0.3个百分点。总体来说知识蒸馏是一个简单而有效的模型压缩&#x2F;训练方法。这大体上是因为原模型的softmax提供了比one-hot标签更多的监督信号[3]。</p>
 <p>知识蒸馏在后续也有很多延伸工作。在NLP方面比较有名的有Yoon Kim等人的<a href="https://link.zhihu.com/?target=https://arxiv.org/abs/1606.07947">Sequence-Level Knowledge Distillation</a> 等。总的来说，对一些比较臃肿、不便部署的模型，可以将其「知识」转移到小的模型上。比如，在机器翻译中，一般的模型需要有较大的容量(capacity)才可能获得较好的结果；现在非常流行的BERT及其变种，规模都非常大；更不用提，一些情形下我们需要将这些本身就很大的深度模型集成为一个ensemble，这时候，可以用知识蒸馏压缩出一个较小的、「便宜」的模型。</p>
 <p>另外，在多任务的情境下，使用一般的策略训练一个多任务模型，可能达不到比单任务更好的效果，文献[3]探索了使用知识蒸馏，利用单任务的模型来指导训练多任务模型的方法，很值得参考。</p>
-<h2 id="补充"><a href="#补充" class="headerlink" title="补充"></a>补充</h2><p> <img src="https://www.zhihu.com/equation?tex=(4)" alt="[公式]"> 梯度的推导。</p>
+<h2 id="补充"><a href="#补充" class="headerlink" title="补充"></a>补充</h2><p>(4)梯度的推导。</p>
 <p>由链式法则，有</p>
-<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+z%7D=%5Cfrac%7B%5Cpartial+q%7D%7B%5Cpartial+z%7D%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+q%7D%5Ctag%7B10%7D"></p>
-<p>注意到 <img src="https://www.zhihu.com/equation?tex=p" alt="[公式]"> 是原模型产生的softmax输出，与 <img src="https://www.zhihu.com/equation?tex=z" alt="[公式]"> 无关。</p>
-<p>后一项 <img src="https://www.zhihu.com/equation?tex=%5Cpartial+C/%5Cpartial+q" alt="[公式]"> 比较容易得到，因为 <img src="https://www.zhihu.com/equation?tex=C=%5Csum_%7Bi=1%7D%5E%7Bn%7D-p_i%5Clog+q_i" alt="[公式]"> ，所以</p>
-<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+q_i%7D=-%5Cfrac%7Bp_i%7D%7Bq_i%7D%5Ctag%7B11%7D"></p>
-<p>则 <img src="https://www.zhihu.com/equation?tex=%5Cpartial+C/%5Cpartial+q" alt="[公式]"> 是一个 <img src="https://www.zhihu.com/equation?tex=n" alt="[公式]"> 维向量</p>
-<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+q%7D=%5Cleft%5B%5Cbegin%7Bmatrix%7D+-%5Cfrac%7Bp_1%7D%7Bq_1%7D%5C%5C+-%5Cfrac%7Bp_2%7D%7Bq_2%7D%5C%5C+%5Cvdots%5C%5C+-%5Cfrac%7Bp_n%7D%7Bq_n%7D++%5Cend%7Bmatrix%7D%5Cright%5D%5Ctag%7B12%7D"></p>
-<p>前一项 <img src="https://www.zhihu.com/equation?tex=%5Cpartial+q/%5Cpartial+z" alt="[公式]"> 是一个 <img src="https://www.zhihu.com/equation?tex=n%5Ctimes+n" alt="[公式]"> 的方阵，分类讨论可以得到。参考公式 <img src="https://www.zhihu.com/equation?tex=(2)" alt="[公式]"> ，记 <img src="https://www.zhihu.com/equation?tex=Z=%5Csum_k+%5Cexp(z_k/T)" alt="[公式]"> ，由除法的求导法则，输出元素 <img src="https://www.zhihu.com/equation?tex=q_i" alt="[公式]"> 对输入 <img src="https://www.zhihu.com/equation?tex=z_j" alt="[公式]"> 的偏导是</p>
-<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+q_i%7D%7B%5Cpartial+z_j%7D=%5Cfrac%7B1%7D%7BZ%5E2%7D%5Cleft(Z%5Cfrac%7B%5Cpartial+%5Cexp(z_i/T)%7D%7B%5Cpartial+z_j%7D-%5Cexp(z_i/T)%5Cboxed%7B%5Cfrac%7B%5Cpartial+Z%7D%7B%5Cpartial+z_j%7D%7D++%5Cright)%5Ctag%7B13%7D"></p>
+<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+z%7D=%5Cfrac%7B%5Cpartial+q%7D%7B%5Cpartial+z%7D%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+q%7D%5Ctag%7B10%7D" alt="[公式]"></p>
+<p>注意到 $$p$$ 是原模型产生的softmax输出，与 $$ z$$ 无关。</p>
+<p>后一项 $$\partial C / \partial q $$ 比较容易得到，因为 </p>
+<p><img src="https://www.zhihu.com/equation?tex=C=%5Csum_%7Bi=1%7D%5E%7Bn%7D-p_i%5Clog+q_i" alt="[公式]"> </p>
+<p>所以</p>
+<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+q_i%7D=-%5Cfrac%7Bp_i%7D%7Bq_i%7D%5Ctag%7B11%7D" alt="[公式]"></p>
+<p>则 $$\partial C / \partial q $$是一个 <img src="https://www.zhihu.com/equation?tex=n" alt="[公式]"> 维向量</p>
+<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+q%7D=%5Cleft%5B%5Cbegin%7Bmatrix%7D+-%5Cfrac%7Bp_1%7D%7Bq_1%7D%5C%5C+-%5Cfrac%7Bp_2%7D%7Bq_2%7D%5C%5C+%5Cvdots%5C%5C+-%5Cfrac%7Bp_n%7D%7Bq_n%7D++%5Cend%7Bmatrix%7D%5Cright%5D%5Ctag%7B12%7D" alt="[公式]"></p>
+<p>前一项 $$\partial q / \partial z$$是一个 $$n\times n$$ 的方阵，分类讨论可以得到。参考公式 (2)，记</p>
+<p> <img src="https://www.zhihu.com/equation?tex=Z=%5Csum_k+%5Cexp(z_k/T)" alt="[公式]"> </p>
+<p>由除法的求导法则，输出元素 $$q_i$$ 对输入 $$z_j$$ 的偏导是</p>
+<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+q_i%7D%7B%5Cpartial+z_j%7D=%5Cfrac%7B1%7D%7BZ%5E2%7D%5Cleft(Z%5Cfrac%7B%5Cpartial+%5Cexp(z_i/T)%7D%7B%5Cpartial+z_j%7D-%5Cexp(z_i/T)%5Cboxed%7B%5Cfrac%7B%5Cpartial+Z%7D%7B%5Cpartial+z_j%7D%7D++%5Cright)%5Ctag%7B13%7D" alt="[公式]"></p>
 <p>注意上面右侧加方框部分，可以进一步展开</p>
-<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+Z%7D%7B%5Cpartial+z_j%7D=%5Cfrac%7B1%7D%7BT%7D%5Cexp(z_j/T)%5Ctag%7B14%7D"></p>
-<p>这样，代入公式 <img src="https://www.zhihu.com/equation?tex=(13)"> ，并且将括号展开，可以得到</p>
-<p><img src="https://www.zhihu.com/equation?tex=%5Cbegin%7Balign%7D+%5Cfrac%7B%5Cpartial+q_i%7D%7B%5Cpartial+z_j%7D&=%5Cfrac%7B1%7D%7BZ%7D%5Cfrac%7B%5Cpartial+%5Cexp(z_i/T)%7D%7B%5Cpartial+z_j%7D-%5Cfrac%7B1%7D%7BTZ%5E2%7D%5Cexp(z_i/T)%5Cexp(z_j/T)%5Ctag%7B15%7D%5C%5C+&=%5Cfrac%7B1%7D%7BZ%7D%5Cfrac%7B%5Cpartial+%5Cexp(z_i/T)%7D%7B%5Cpartial+z_j%7D-%5Cfrac%7B1%7D%7BT%7D%5Cfrac%7B%5Cexp(z_i/T)%7D%7BZ%7D%5Cfrac%7B%5Cexp(z_j/T)%7D%7BZ%7D%5Ctag%7B16%7D%5C%5C+&=%5Cfrac%7B1%7D%7BZ%7D%5Cboxed%7B%5Cfrac%7B%5Cpartial+%5Cexp(z_i/T)%7D%7B%5Cpartial+z_j%7D%7D-%5Cfrac%7B1%7D%7BT%7Dq_iq_j%5Ctag%7B17%7D%5C%5C+%5Cend%7Balign%7D"></p>
+<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+Z%7D%7B%5Cpartial+z_j%7D=%5Cfrac%7B1%7D%7BT%7D%5Cexp(z_j/T)%5Ctag%7B14%7D" alt="[公式]"></p>
+<p>这样，代入公式 <img src="https://www.zhihu.com/equation?tex=(13)" alt="[公式]"> ，并且将括号展开，可以得到</p>
+<p><img src="https://www.zhihu.com/equation?tex=%5Cbegin%7Balign%7D+%5Cfrac%7B%5Cpartial+q_i%7D%7B%5Cpartial+z_j%7D&=%5Cfrac%7B1%7D%7BZ%7D%5Cfrac%7B%5Cpartial+%5Cexp(z_i/T)%7D%7B%5Cpartial+z_j%7D-%5Cfrac%7B1%7D%7BTZ%5E2%7D%5Cexp(z_i/T)%5Cexp(z_j/T)%5Ctag%7B15%7D%5C%5C+&=%5Cfrac%7B1%7D%7BZ%7D%5Cfrac%7B%5Cpartial+%5Cexp(z_i/T)%7D%7B%5Cpartial+z_j%7D-%5Cfrac%7B1%7D%7BT%7D%5Cfrac%7B%5Cexp(z_i/T)%7D%7BZ%7D%5Cfrac%7B%5Cexp(z_j/T)%7D%7BZ%7D%5Ctag%7B16%7D%5C%5C+&=%5Cfrac%7B1%7D%7BZ%7D%5Cboxed%7B%5Cfrac%7B%5Cpartial+%5Cexp(z_i/T)%7D%7B%5Cpartial+z_j%7D%7D-%5Cfrac%7B1%7D%7BT%7Dq_iq_j%5Ctag%7B17%7D%5C%5C+%5Cend%7Balign%7D" alt="[公式]"></p>
 <p>左侧方框内偏导可以分类讨论得到</p>
-<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+%5Cexp(z_i/T)%7D%7B%5Cpartial+z_j%7D=%5Cbegin%7Bcases%7D+%5Cfrac%7B1%7D%7BT%7D%5Cexp(z_i/T),%5C+&%5Ctext%7Bif+%7Di=j%5C%5C+0,&%5Ctext%7Bif+%7Di%5Cneq+j+%5Cend%7Bcases%7D%5Ctag%7B18%7D"></p>
-<p>带入式 <img src="https://www.zhihu.com/equation?tex=(17)"> ，得到</p>
+<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+%5Cexp(z_i/T)%7D%7B%5Cpartial+z_j%7D=%5Cbegin%7Bcases%7D+%5Cfrac%7B1%7D%7BT%7D%5Cexp(z_i/T),%5C+&%5Ctext%7Bif+%7Di=j%5C%5C+0,&%5Ctext%7Bif+%7Di%5Cneq+j+%5Cend%7Bcases%7D%5Ctag%7B18%7D" alt="[公式]"></p>
+<p>带入式 (17)，得到</p>
 <p><img src="https://www.zhihu.com/equation?tex=%5Cbegin%7Balign%7D+%5Cfrac%7B%5Cpartial+q_i%7D%7B%5Cpartial+z_j%7D+&=%5Cbegin%7Bcases%7D+%5Cfrac%7B1%7D%7BT%7D%5Cleft(%5Cfrac%7B%5Cexp(z_i/T)%7D%7BZ%7D-q_iq_j%5Cright)+,%5C+&%5Ctext%7Bif+%7Di=j%5C%5C+-%5Cfrac%7B1%7D%7BT%7Dq_iq_j,&%5Ctext%7Bif+%7Di%5Cneq+j+%5Cend%7Bcases%7D%5Ctag%7B19%7D%5C%5C+&=%5Cbegin%7Bcases%7D+%5Cfrac%7B1%7D%7BT%7D%5Cleft(q_i-q_iq_j%5Cright)+,%5C+&%5Ctext%7Bif+%7Di=j%5C%5C+-%5Cfrac%7B1%7D%7BT%7Dq_iq_j,&%5Ctext%7Bif+%7Di%5Cneq+j+%5Cend%7Bcases%7D%5Ctag%7B20%7D+%5Cend%7Balign%7D" alt="[公式]"></p>
-<p>所以 <img src="https://www.zhihu.com/equation?tex=%5Cpartial+q/%5Cpartial+z"> 形式如下</p>
-<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+q%7D%7B%5Cpartial+z%7D=%5Cfrac%7B1%7D%7BT%7D%5Cleft%5B+%5Cbegin%7Bmatrix%7D+q_1-q_1%5E2+&+-q_1q_2+&+%5Ccdots+&+-q_1q_n%5C%5C+-q_2q_1+&+q_2-q_2%5E2+&+%5Ccdots+&+-q_2q_n%5C%5C+%5Cvdots+&+%5Cvdots+&+%5Cddots+&%5Cvdots%5C%5C+-q_nq_1+&+-q_nq_2+&+%5Ccdots+&+q_n-q_n%5E2+%5Cend%7Bmatrix%7D+%5Cright%5D%5Ctag%7B21%7D"></p>
-<p>代入式 <img src="https://www.zhihu.com/equation?tex=(10)" alt="[公式]"> ，可得</p>
-<p><img src="https://www.zhihu.com/equation?tex=%5Cbegin%7Balign%7D%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+z%7D&=%5Cfrac%7B1%7D%7BT%7D%5Cleft%5B+%5Cbegin%7Bmatrix%7D+q_1-q_1%5E2+&+-q_1q_2+&+%5Ccdots+&+-q_1q_n%5C%5C+-q_2q_1+&+q_2-q_2%5E2+&+%5Ccdots+&+-q_2q_n%5C%5C+%5Cvdots+&+%5Cvdots+&+%5Cddots+&%5Cvdots%5C%5C+-q_nq_1+&+-q_nq_2+&+%5Ccdots+&+q_n-q_n%5E2+%5Cend%7Bmatrix%7D+%5Cright%5D+%5Cleft%5B%5Cbegin%7Bmatrix%7D+-%5Cfrac%7Bp_1%7D%7Bq_1%7D%5C%5C+-%5Cfrac%7Bp_2%7D%7Bq_2%7D%5C%5C+%5Cvdots%5C%5C+-%5Cfrac%7Bp_n%7D%7Bq_n%7D++%5Cend%7Bmatrix%7D%5Cright%5D%5Ctag%7B22%7D%5C%5C++&=%5Cfrac%7B1%7D%7BT%7D%5Cleft%5B%5Cbegin%7Bmatrix%7D+-p_1+%5Csum_kp_kq_1%5C%5C+-p_2+%5Csum_kp_kq_2%5C%5C+%5Cvdots%5C%5C+-p_n+%5Csum_kp_kq_n++%5Cend%7Bmatrix%7D%5Cright%5D%5Ctag%7B23%7D%5C%5C++&=%5Cfrac%7B1%7D%7BT%7D%5Cleft%5B%5Cbegin%7Bmatrix%7D+-p_1+q_1%5C%5C+-p_2+q_2%5C%5C+%5Cvdots%5C%5C+-p_n+q_n+%5Cend%7Bmatrix%7D%5Cright%5D%5Ctag%7B24%7D%5C%5C+&=%5Cfrac%7B1%7D%7BT%7D(q-p)%5Ctag%7B25%7D+%5Cend%7Balign%7D"></p>
-<p>所以有公式 <img src="https://www.zhihu.com/equation?tex=(4)" alt="[公式]"> ， <img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+z_i%7D=%5Cfrac%7B1%7D%7BT%7D(q_i-p_i)"> 。</p>
+<p>所以 $$\partial q / \partial z$$形式如下</p>
+<p><img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+q%7D%7B%5Cpartial+z%7D=%5Cfrac%7B1%7D%7BT%7D%5Cleft%5B+%5Cbegin%7Bmatrix%7D+q_1-q_1%5E2+&+-q_1q_2+&+%5Ccdots+&+-q_1q_n%5C%5C+-q_2q_1+&+q_2-q_2%5E2+&+%5Ccdots+&+-q_2q_n%5C%5C+%5Cvdots+&+%5Cvdots+&+%5Cddots+&%5Cvdots%5C%5C+-q_nq_1+&+-q_nq_2+&+%5Ccdots+&+q_n-q_n%5E2+%5Cend%7Bmatrix%7D+%5Cright%5D%5Ctag%7B21%7D" alt="[公式]"></p>
+<p>代入式(10)，可得</p>
+<p><img src="https://www.zhihu.com/equation?tex=%5Cbegin%7Balign%7D%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+z%7D&=%5Cfrac%7B1%7D%7BT%7D%5Cleft%5B+%5Cbegin%7Bmatrix%7D+q_1-q_1%5E2+&+-q_1q_2+&+%5Ccdots+&+-q_1q_n%5C%5C+-q_2q_1+&+q_2-q_2%5E2+&+%5Ccdots+&+-q_2q_n%5C%5C+%5Cvdots+&+%5Cvdots+&+%5Cddots+&%5Cvdots%5C%5C+-q_nq_1+&+-q_nq_2+&+%5Ccdots+&+q_n-q_n%5E2+%5Cend%7Bmatrix%7D+%5Cright%5D+%5Cleft%5B%5Cbegin%7Bmatrix%7D+-%5Cfrac%7Bp_1%7D%7Bq_1%7D%5C%5C+-%5Cfrac%7Bp_2%7D%7Bq_2%7D%5C%5C+%5Cvdots%5C%5C+-%5Cfrac%7Bp_n%7D%7Bq_n%7D++%5Cend%7Bmatrix%7D%5Cright%5D%5Ctag%7B22%7D%5C%5C++&=%5Cfrac%7B1%7D%7BT%7D%5Cleft%5B%5Cbegin%7Bmatrix%7D+-p_1+%5Csum_kp_kq_1%5C%5C+-p_2+%5Csum_kp_kq_2%5C%5C+%5Cvdots%5C%5C+-p_n+%5Csum_kp_kq_n++%5Cend%7Bmatrix%7D%5Cright%5D%5Ctag%7B23%7D%5C%5C++&=%5Cfrac%7B1%7D%7BT%7D%5Cleft%5B%5Cbegin%7Bmatrix%7D+-p_1+q_1%5C%5C+-p_2+q_2%5C%5C+%5Cvdots%5C%5C+-p_n+q_n+%5Cend%7Bmatrix%7D%5Cright%5D%5Ctag%7B24%7D%5C%5C+&=%5Cfrac%7B1%7D%7BT%7D(q-p)%5Ctag%7B25%7D+%5Cend%7Balign%7D" alt="[公式]"></p>
+<p>所以有公式(4) ， <img src="https://www.zhihu.com/equation?tex=%5Cfrac%7B%5Cpartial+C%7D%7B%5Cpartial+z_i%7D=%5Cfrac%7B1%7D%7BT%7D(q_i-p_i)" alt="[公式]"> 。</p>
 </div><hr></div><div class="recent-post-item article-container"><a class="article-title" href="/2022/04/12/ViT/">Vision Transformer</a><time class="post-meta__date"><i class="fa fa-calendar" aria-hidden="true"></i> 2022-04-12</time><span class="article-meta"><span class="article-meta__separator">|</span><i class="fa fa-inbox article-meta__icon" aria-hidden="true"></i><a class="article-meta__categories" href="/categories/%E6%97%A5%E5%B8%B8%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">日常学习笔记</a><i class="fa fa-angle-right" aria-hidden="true"></i><i class="fa fa-inbox article-meta__icon" aria-hidden="true"></i><a class="article-meta__categories" href="/categories/%E6%97%A5%E5%B8%B8%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a></span><span class="article-meta tags"><span class="article-meta__separator">|</span><i class="fa fa-tag article-meta__icon" aria-hidden="true"></i><a class="article-meta__tags" href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/">计算机视觉</a><span class="article-meta__link">-</span><i class="fa fa-tag article-meta__icon" aria-hidden="true"></i><a class="article-meta__tags" href="/tags/ViT/">ViT</a><span class="article-meta__link">-</span><i class="fa fa-tag article-meta__icon" aria-hidden="true"></i><a class="article-meta__tags" href="/tags/transformer/">transformer</a></span><div class="content"><h1 id="Vision-Transformer"><a href="#Vision-Transformer" class="headerlink" title="Vision Transformer"></a>Vision Transformer</h1><p>本文重点介绍ViT原理，同时简单介绍三篇相关论文，这四篇论文的源码见 <a href="https://link.zhihu.com/?target=https://github.com/google-research/vision_transformer">https://github.com/google-research/vision_transformer</a></p>
-<p><a href="https://link.zhihu.com/?target=https://arxiv.org/abs/2010.11929">arXiv:2010.11929</a>：An image is worth 16x16 words: Transformers for image recognition at scale（ViT大法，一般人没钱做的工作）</p>
+<p><a target="_blank" rel="noopener" href="https://arxiv.org/abs/2010.11929">arXiv:2010.11929</a>：An image is worth 16x16 words: Transformers for image recognition at scale（ViT大法，一般人没钱做的工作）</p>
 <p><a href="https://link.zhihu.com/?target=https://arxiv.org/abs/2105.01601">arXiv:2105.01601</a>：MLP-Mixer: An all-MLP Architecture for Vision （用MLPs替代self-attention可以得到和ViT同样好的结果）</p>
 <p><a href="https://link.zhihu.com/?target=https://arxiv.org/abs/2106.01548">arXiv:2106.01548</a>：When Vision Transformers Outperform ResNets without Pre-training or Strong Data Augmentations （不使用大规模预训练和强数据增强ViT是否依然可以表现优秀）</p>
 <p><a href="https://link.zhihu.com/?target=https://arxiv.org/abs/2106.10270">arXiv:2106.10270</a>：How to train your ViT? Data, Augmentation, and Regularization in Vision Transformers （通过大量实验，总共训练了超过5w个ViT，教你如何训练自己的ViT模型，以及数据增广和模型正则化什么时候有用）</p>
@@ -68,25 +72,27 @@
 <h2 id="arXiv-2010-11929-ViT"><a href="#arXiv-2010-11929-ViT" class="headerlink" title="arXiv:2010.11929 (ViT)"></a>arXiv:2010.11929 (ViT)</h2><p><img src="https://pic2.zhimg.com/80/v2-692d349ee289e1cea9d7d100b6919771_720w.jpg" alt="img"></p>
 <h3 id="简介"><a href="#简介" class="headerlink" title="简介"></a><strong>简介</strong></h3><p>ViT是2020年Google团队提出的将Transformer应用在图像分类的模型，虽然不是第一篇将transformer应用在视觉任务的论文，但是因为其模型“简单”且效果好，可扩展性强（scalable，模型越大效果越好），成为了transformer在CV领域应用的里程碑著作，也引爆了后续相关研究</p>
 <p>把最重要的说在最前面，ViT原论文中最核心的结论是，当拥有足够多的数据进行预训练的时候，ViT的表现就会超过CNN，突破transformer缺少归纳偏置的限制，可以在下游任务中获得较好的迁移效果</p>
-<p>但是当训练数据集不够大的时候，ViT的表现通常比同等大小的ResNets要差一些，因为Transformer和CNN相比缺少归纳偏置（inductive bias），即一种先验知识，提前做好的假设。CNN具有两种归纳偏置，一种是局部性（locality&#x2F;two-dimensional neighborhood structure），即图片上相邻的区域具有相似的特征；一种是平移不变性（translation equivariance）， <img src="https://www.zhihu.com/equation?tex=f(g(x))=g(f(x))" alt="[公式]"> ，其中g代表卷积操作，f代表平移操作。当CNN具有以上两种归纳偏置，就有了很多先验信息，需要相对少的数据就可以学习一个比较好的模型</p>
+<p>但是当训练数据集不够大的时候，ViT的表现通常比同等大小的ResNets要差一些，因为Transformer和CNN相比缺少归纳偏置（inductive bias），即一种先验知识，提前做好的假设。CNN具有两种归纳偏置，一种是局部性（locality&#x2F;two-dimensional neighborhood structure），即图片上相邻的区域具有相似的特征；一种是平移不变性（translation equivariance）， $$ f(g(x)) = g(f(x)) $$，其中g代表卷积操作，f代表平移操作。当CNN具有以上两种归纳偏置，就有了很多先验信息，需要相对少的数据就可以学习一个比较好的模型</p>
 <h3 id="ViT的结构"><a href="#ViT的结构" class="headerlink" title="ViT的结构"></a>ViT的结构</h3><p>ViT将输入图片分为多个patch（16x16），再将每个patch投影为固定长度的向量送入Transformer，后续encoder的操作和原始Transformer中完全相同。但是因为对图片分类，因此在输入序列中加入一个特殊的token，该token对应的输出即为最后的类别预测</p>
-<p><img src="https://pic4.zhimg.com/80/v2-5afd38bd10b279f3a572b13cda399233_720w.jpg" alt="ViT只使用了Transformer的encoder"></p>
+<p><img src="https://pic4.zhimg.com/80/v2-5afd38bd10b279f3a572b13cda399233_720w.jpg" alt="img"></p>
+<p><em>ViT只使用了Transformer的encoder</em></p>
 <p>按照上面的流程图，一个ViT block可以分为以下几个步骤</p>
 <p>(1) patch embedding：例如输入图片大小为224x224，将图片分为固定大小的patch，patch大小为16x16，则每张图像会生成224x224&#x2F;16x16&#x3D;196个patch，即输入序列长度为<strong>196</strong>，每个patch维度16x16x3&#x3D;<strong>768</strong>，线性投射层的维度为768xN (N为token的维度，这里N&#x3D;768)，因此输入通过线性投射层之后的维度依然为196x768，即一共有196个token，每个token的维度是768。这里还需要加上一个特殊字符cls，因此最终的维度是<strong>197x768</strong>。到目前为止，已经通过patch embedding将一个视觉问题转化为了一个seq2seq问题</p>
 <p>(2) positional encoding（standard learnable 1D position embeddings）：ViT同样需要加入位置编码，位置编码可以理解为一张表，表一共有N行，N的大小和输入序列长度相同，每一行代表一个向量，向量的维度和输入序列embedding的维度相同（768）。注意位置编码的操作是sum，而不是concat。加入位置编码信息之后，维度依然是<strong>197x768</strong></p>
 <p>(3) LN&#x2F;multi-head attention&#x2F;LN：LN输出维度依然是197x768。多头自注意力时，先将输入映射到q，k，v，如果只有一个头，qkv的维度都是197x768，如果有12个头（768&#x2F;12&#x3D;64），则qkv的维度是197x64，一共有12组qkv，最后再将12组qkv的输出拼接起来，输出维度是197x768，然后在过一层LN，维度依然是<strong>197x768</strong></p>
 <p>(4) MLP：将维度放大再缩小回去，197x768放大为197x3072，再缩小变为<strong>197x768</strong></p>
-<p>一个block之后维度依然和输入相同，都是197x768，因此可以堆叠多个block。最后会将特殊字符cls对应的输出 <img src="https://www.zhihu.com/equation?tex=%5Cmathbf%7Bz%7D_L%5E0"> 作为encoder的最终输出 ，代表最终的image presentation（另一种做法是不加cls字符，对所有的tokens的输出做一个平均），如下图公式(4)，后面接一个MLP进行图片分类</p>
-<p><img src="https://pic2.zhimg.com/80/v2-ebf697b1994598019a6a59855dc0dbed_720w.jpg"></p>
-<p>其中输入image <img src="https://www.zhihu.com/equation?tex=%5Cmathbf%7Bx%7D%5Cin%5Cmathbb%7BR%7D%5E%7BH%5Ctimes+W%5Ctimes+C%7D"> ，2D patches <img src="https://www.zhihu.com/equation?tex=%5Cmathbf%7Bx%7D_p%5Cin%5Cmathbb%7BR%7D%5E%7BN%5Ctimes+(P%5E2%5Ccdot+C)%7D"> ， <img src="https://www.zhihu.com/equation?tex=C"> 是通道数， <img src="https://www.zhihu.com/equation?tex=P"> 是patch大小，一共有 <img src="https://www.zhihu.com/equation?tex=N"> 个patches， <img src="https://www.zhihu.com/equation?tex=N=HW/P%5E2"></p>
+<p>一个block之后维度依然和输入相同，都是197x768，因此可以堆叠多个block。最后会将特殊字符cls对应的输出$$ z_L^0$$作为encoder的最终输出 ，代表最终的image presentation（另一种做法是不加cls字符，对所有的tokens的输出做一个平均），如下图公式(4)，后面接一个MLP进行图片分类</p>
+<p><img src="https://pic2.zhimg.com/80/v2-ebf697b1994598019a6a59855dc0dbed_720w.jpg" alt="img"></p>
+<p>其中输入image $$x \in \R^{H \times W \times C}$$，2D patches $$x_p \in \R^{N \times (P^2 \cdot C)}$$ ，$$C$$ 是通道数，$$P$$ 是patch大小，一共有$$N$$个patches， $$N = HW/P^2$$</p>
 <p><strong>关于image presentation</strong></p>
 <p>是否可以直接使用average pooling得到最终的image presentation，而不加特殊字符cls，通过实验表明，同样可以使用average pooling，原文ViT是为了尽可能是模型结构接近原始的Transformer，所以采用了类似于BERT的做法，加入特殊字符</p>
-<p><img src="https://pic1.zhimg.com/80/v2-4a8b39b1d2dd43d1e9b16edbc38b1660_720w.jpg" alt="学习率的影响较大，注意调参"></p>
+<p><img src="https://pic1.zhimg.com/80/v2-4a8b39b1d2dd43d1e9b16edbc38b1660_720w.jpg" alt="img"></p>
+<p><em>学习率的影响较大，注意调参</em></p>
 <p><strong>关于positional encoding</strong></p>
 <p>1-D 位置编码：例如3x3共9个patch，patch编码为1到9</p>
 <p>2-D 位置编码：patch编码为11,12,13,21,22,23,31,32,33，即同时考虑X和Y轴的信息，每个轴的编码维度是D&#x2F;2</p>
 <p>实际实验结果表明，不管使用哪种位置编码方式，模型的精度都很接近，甚至不适用位置编码，模型的性能损失也没有特别大。原因可能是ViT是作用在image patch上的，而不是image pixel，对网络来说这些patch之间的相对位置信息很容易理解，所以使用什么方式的位置编码影像都不大</p>
-<p><img src="https://pic1.zhimg.com/80/v2-e152c9ad22f6984912fb0652cf294018_720w.jpg"></p>
+<p><img src="https://pic1.zhimg.com/80/v2-e152c9ad22f6984912fb0652cf294018_720w.jpg" alt="img"></p>
 <p><strong>关于CNN+Transformer</strong></p>
 <p>既然CNN具有归纳偏置的特性，Transformer又具有很强全局归纳建模能力，使用CNN+Transformer的混合模型是不是可以得到更好的效果呢？将224x224图片送入CNN得到16x16的特征图，拉成一个向量，长度为196，后续操作和ViT相同</p>
 <p><strong>关于输入图片大小</strong></p>
@@ -100,17 +106,20 @@
 <p>（1）ViT：参考BERT，共设置了三种模型变体（增加了Huge变体）如下图所示。例如ViT-L&#x2F;16，代表Large变体，输入patch size为16x16。</p>
 <p>（2）CNN：baseline CNNs选择ResNet，同时用Group Normalization替代Batch Normalization，使用standardized convolutions，以提升模型迁移性能。</p>
 <p>（3）Hybrid：混合模型就是使用ResNet50输出的特征图，不同stage会得到不同大小的特征图，即生成不同长度序列</p>
-<p><img src="https://pic2.zhimg.com/80/v2-54f717f71079becca62a0247660a171d_720w.jpg" alt="Details of Vision Transformer model variants"></p>
-<p>所有模型的训练均使用Adam（ <img src="https://www.zhihu.com/equation?tex=%5Cbeta_1=0.9"> , <img src="https://www.zhihu.com/equation?tex=%5Cbeta_2=0.999"> ），batch_size设为4096，权重衰减（apply a high weight decay of 0.1），同时使用了学习率warmup策略（use a linear learning rate warmup and decay)；微调阶段，使用SGD with momentum，batch_size设为512</p>
+<p><img src="https://pic2.zhimg.com/80/v2-54f717f71079becca62a0247660a171d_720w.jpg" alt="img"></p>
+<p>Details of Vision Transformer model variants</p>
+<p>所有模型的训练均使用Adam（ $$\beta_1=0.99$$ , $$\beta_2=0.999$$），batch_size设为4096，权重衰减（apply a high weight decay of 0.1），同时使用了学习率warmup策略（use a linear learning rate warmup and decay)；微调阶段，使用SGD with momentum，batch_size设为512</p>
 <p><strong>实验结果</strong></p>
 <p><img src="https://pic2.zhimg.com/80/v2-d5e21c0fadf2591220271021f570299d_720w.jpg" alt="img"></p>
 <p><em>ViT和其它SOTA模型性能对比，展示了准确率accuraces的均值和标准差，所有结果都是取三轮微调均值的结果（averaged over three fine-tunning runs）。有关ImageNet的实验，在更高分辨率图片上微调(512 for ViT-L&#x2F;16 and 518 for ViT-H&#x2F;14)，同时使用了Polyak averaging(0.9999)</em></p>
 <p>可以看到在JFT数据集上预训练的ViT模型，迁移到下游任务后，表现要好于基于ResNet的BiT和基于EfficientNet的Noisy Student，且需要更少的预训练时间</p>
-<p><img src="https://pic2.zhimg.com/80/v2-ff04d612cd03446278622d368ec1c6c9_720w.jpg" alt="各类模型在VTAB上的表现，ViT同样性能更好"></p>
+<p><img src="https://pic2.zhimg.com/80/v2-ff04d612cd03446278622d368ec1c6c9_720w.jpg" alt="img"><em>各类模型在VTAB上的表现，ViT同样性能更好</em></p>
 <p>上面的实验显示，当在很大的数据集上预训练时，ViT性能超越CNN，后面探究不同大小预训练数据集对模型性能的影响（不能只看超大数据集）</p>
-<p><img src="https://pic2.zhimg.com/80/v2-65138c61d2f9c57448b4ba23dad4af55_720w.jpg" alt="*transfor to ImageNet*"></p>
+<p><img src="https://pic2.zhimg.com/80/v2-65138c61d2f9c57448b4ba23dad4af55_720w.jpg" alt="img"></p>
+<p><em>transfor to ImageNet</em></p>
 <p>这里当在更小的数据集上预训练时（ImageNet），优化三个超参数以提升模型性能，分别是weight decay, dropout 和 label smoothing。可以看到当在小数据集上预训练时（ImageNet-1k，1.3million），ViT微调后的效果远远比不上ResNet；在中等数据集上预训练时（ImageNet-21K，14million），两者效果相当；当在很大的数据集上（JFT-300M, 300million）预训练时，ViT的效果要更好。所以当我们只有较小的数据集时，更适合使用ResNet（并不是所有数据集都适合硬套transformer）</p>
-<p><img src="https://pic1.zhimg.com/80/v2-719f695ec8fb9c33e19fd8515c1ff230_720w.jpg" alt="Linear few-shot evaluation on ImageNet versus pre-training size"></p>
+<p><img src="https://pic1.zhimg.com/80/v2-719f695ec8fb9c33e19fd8515c1ff230_720w.jpg" alt="img"></p>
+<p><em>Linear few-shot evaluation on ImageNet versus pre-training size</em></p>
 <p>如上图，在同一个数据集（JFT），分别抽取不同数量的数据（10M，30M，100M，300M），避免不同数据集之间的gap，同时不适用额外的regularization，超参数保证相同。linear evaluation是指直接把预训练模型当做特征提取器，不fine-tune，拿提取到的特征直接做logistic regression。few-shot是指在evaluation的时候，每一类只sample五张图片。</p>
 <p>可以看到当数据集很小时，CNN预训练模型表现更好，证明了CNN归纳偏置的有效性，但是当数据集足够大时，归纳偏置和Transformer比较就失去了优势，甚至没有归纳偏置，直接从数据learn patterns会更有效。同时细心观察会发现即使预训练的数据集很大，最后ViT的性能提升也不是很明显，因此如何使用ViT来做这种小样本学习任务，是一个有待继续研究的方向</p>
 <p><img src="https://pic4.zhimg.com/80/v2-53da3593bafc05bad3b72099583d909b_720w.jpg" alt="img"><em>Performance versus cost for different architectures: Vision Transformers, ResNets, andhybrids.</em></p>
@@ -133,12 +142,12 @@
 <h3 id="Mixer结构"><a href="#Mixer结构" class="headerlink" title="Mixer结构"></a>Mixer结构</h3><p><img src="https://pic3.zhimg.com/80/v2-ed96c7a5add85b9151c7f10fbda4943a_720w.jpg" alt="img"></p>
 <p><em>类似于Transformer，每一个layer输入和输出的维度相同，可以堆叠多个layer</em></p>
 <p>类似于ViT，首先进行patch embedding操作，<strong>一个Mixer Layer中包含了channel-mixing MLPs和token-mixing MLPs</strong>，但是Mixer不适用positional encoding，因为token-mixing MLPs对输入tokens的顺序非常敏感</p>
-<p><img src="https://pic2.zhimg.com/80/v2-58df6c737fdea377071868f106b7c1c1_720w.jpg"></p>
+<p><img src="https://pic2.zhimg.com/80/v2-58df6c737fdea377071868f106b7c1c1_720w.jpg" alt="img"></p>
 <p>token-mixing MLPs：允许信息在空间维度交互，独立作用于每一个channel，作用于列，融合不同token的特征</p>
 <p>channel-mixing MLPs：允许信息在通道交互，独立作用于每一个token，作用于行，融合不同channel的特征</p>
-<p>输入image的分辨率为 <img src="https://www.zhihu.com/equation?tex=H%5Ctimes+W"> ，patch的分辨率为 <img src="https://www.zhihu.com/equation?tex=P%5Ctimes+P">，则patch的数量 <img src="https://www.zhihu.com/equation?tex=S=HW/P%5E2"> ，所有的patch拉直后线性投影到维度 <img src="https://www.zhihu.com/equation?tex=C"> ，则得到Mixer Layer的输入 <img src="https://www.zhihu.com/equation?tex=%5Cmathbf%7BX%7D%5Cin%5Cmathbb%7BR%7D%5E%7BS%5Ctimes+C%7D"> 。token-mixing MLPs作用于 <img src="https://www.zhihu.com/equation?tex=%5Cmathbf%7BX%7D"> 的列，特征维度不发生变化（ <img src="https://www.zhihu.com/equation?tex=%5Cmathbb%7BR%7D%5ES%5Crightarrow%5Cmathbb%7BR%7D%5ES"> ），channel-mixing MLPs作用于 <img src="https://www.zhihu.com/equation?tex=%5Cmathbf%7BX%7D"> 的行，特征维度同样不发生变化（ <img src="https://www.zhihu.com/equation?tex=%5Cmathbb%7BR%7D%5EC%5Crightarrow%5Cmathbb%7BR%7D%5EC"> ）。每一个MLP包含两个全连接层和一个非线性激活（GELU），一个Mixer layers的公式如下，计算复杂度和输入patches的数量成线性关系（ViT是平方关系)</p>
-<p><img src="https://pic3.zhimg.com/80/v2-a0abfc39a823b43e061ee5acd14da0e2_720w.jpg"></p>
-<p>需要注意token-mixing MLPs共享参数，channel-mixing MLPs同样共享参数，因此避免了当输入特征维度增加（ <img src="https://www.zhihu.com/equation?tex=C"> 变大）或者输入序列长度增加（ <img src="https://www.zhihu.com/equation?tex=S"> 变大)时，模型参数量急剧增加的情况，极大减少了内存消耗</p>
+<p>输入image的分辨率为$$H \times W$$，patch的分辨率为$$P \times P$$，则patch的数量$$S = HW/P^2$$，所有的patch拉直后线性投影到维度$$C$$，则得到Mixer Layer的输入$$X \in \R ^{S \times C}$$。token-mixing MLPs作用于$$X$$的列，特征维度不发生变化（$$\R ^S \to \R ^S$$），channel-mixing MLPs作用于$$X$$的行，特征维度同样不发生变化（$$\R ^C \to \R ^C$$）。每一个MLP包含两个全连接层和一个非线性激活（GELU），一个Mixer layers的公式如下，计算复杂度和输入patches的数量成线性关系（ViT是平方关系）</p>
+<p><img src="https://pic3.zhimg.com/80/v2-a0abfc39a823b43e061ee5acd14da0e2_720w.jpg" alt="img"></p>
+<p>需要注意token-mixing MLPs共享参数，channel-mixing MLPs同样共享参数，因此避免了当输入特征维度增加（$$C$$变大）或者输入序列长度增加（$$S$$变大）时，模型参数量急剧增加的情况，极大减少了内存消耗</p>
 <p>模型最后接global average pooling+a linear classifier</p>
 <h3 id="实验结果"><a href="#实验结果" class="headerlink" title="实验结果"></a>实验结果</h3><p>当在大规模数据集上预训练（100million images），Mixer可以接近CNNs和Transformers的SOTA表现，在ImageNet上达到87.94%的top-1 accuracy；当在更小规模数据集上预训练时（10million），结合一些regularization techniques，Mixer可以接近ViT的性能，但是稍逊于CNN</p>
 </div><hr></div><div class="recent-post-item article-container"><a class="article-title" href="/2022/04/12/transformer/">transformer</a><time class="post-meta__date"><i class="fa fa-calendar" aria-hidden="true"></i> 2022-04-12</time><span class="article-meta"><span class="article-meta__separator">|</span><i class="fa fa-inbox article-meta__icon" aria-hidden="true"></i><a class="article-meta__categories" href="/categories/%E6%97%A5%E5%B8%B8%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">日常学习笔记</a><i class="fa fa-angle-right" aria-hidden="true"></i><i class="fa fa-inbox article-meta__icon" aria-hidden="true"></i><a class="article-meta__categories" href="/categories/%E6%97%A5%E5%B8%B8%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0/">深度学习</a></span><span class="article-meta tags"><span class="article-meta__separator">|</span><i class="fa fa-tag article-meta__icon" aria-hidden="true"></i><a class="article-meta__tags" href="/tags/transformer/">transformer</a><span class="article-meta__link">-</span><i class="fa fa-tag article-meta__icon" aria-hidden="true"></i><a class="article-meta__tags" href="/tags/%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0/">深度学习</a></span><div class="content"><h1 id="transformer"><a href="#transformer" class="headerlink" title="transformer"></a>transformer</h1><p>谷歌的Transformer模型最早是用于机器翻译任务，当时达到了SOTA效果。Transformer改进了RNN最被人诟病的训练慢的缺点，利用self-attention机制实现快速并行。并且Transformer可以增加到非常深的深度，充分发掘DNN模型的特性，提升模型准确率。</p>
@@ -263,7 +272,7 @@
 <p>如果说2D卷积是解决各种图像任务的天选之子，那么3D卷积就是提取时空特征时最自然的解决方案，如C3D，可以参考文章：</p>
 <p>[<a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/443813567">论文笔记] C3D - 知乎 (zhihu.com)</a></p>
 <p>其<strong>优点</strong>就是可以同时提取时空信息；<strong>缺点</strong>也显而易见，即具有更庞大的参数数量从而更难训练，因此一般3D网络的深度都较浅，单这样又影响了模型的表达能力，此外，没有办法能够有效的把2D网络的预训练权重迁移到3D网络。</p>
-<p>本文作者在C3D的基础上进行了改进：（1）在所有卷积和全连接层之后都假如了BN，（2）原始C3D的第一个池化步长是 <img src="https://www.zhihu.com/equation?tex=1+%5Ctimes+2+%5Ctimes+2" alt="[公式]"> ，本文改为了 <img src="https://www.zhihu.com/equation?tex=2+%5Ctimes+2+%5Ctimes+2" alt="[公式]"> ，因此能够更加节省显存占用（可以使用更大的Batch，对于BN来说这也是非常重要的）。</p>
+<p>本文作者在C3D的基础上进行了改进：（1）在所有卷积和全连接层之后都假如了BN，（2）原始C3D的第一个池化步长是 $$ 1 \times 2 \times 2 $$ ，本文改为了  $$ 2 \times 2 \times 2 $$ ，因此能够更加节省显存占用（可以使用更大的Batch，对于BN来说这也是非常重要的)。</p>
 <p><strong>2.1.3 Two-Stream</strong></p>
 <p>双流网络中一个分支作为spatial flow，输入RGB图像来提取物体和场景外观特征；另一个分支作为temporal flow，输入光流来提取运动特征。通常两个网络分开训练，只有在测试时才会平均两个网络的预测（测试的时候是输入很多个单张图，最后结果取平均）。因此，也产生了时空信息在浅层网络中无法有效融合的问题。</p>
 <p><strong>2.1.4 3D-fused Two-stream</strong></p>
@@ -272,35 +281,40 @@
 <p><img src="https://pic2.zhimg.com/80/v2-1d6b29eff4be9ca7c1349ffe440d1b7d_720w.jpg" alt="img">Fig. 4 Inception-V1网络结构</p>
 <p><strong>2.2.1 2D网络到3D网络</strong></p>
 <p>Imagenet挑战赛中有很多优秀的模型，想使用他们的3D版本包括两个步骤：（1）模型从2D变成3D，（2）权重从2D变成3D。</p>
-<p>对于模型，本文直接把2D卷积或2D池化的 <img src="https://www.zhihu.com/equation?tex=N+%5Ctimes+N" alt="[公式]"> 的kernel变成 <img src="https://www.zhihu.com/equation?tex=N+%5Ctimes+N+%5Ctimes+N" alt="[公式]"> 的kernel。</p>
+<p>对于模型，本文直接把2D卷积或2D池化的 $$ N \times N $$ 的kernel变成  $$ N \times N \times N $$ 的kernel。</p>
 <p>对于预训练权重，首先把2D卷积核在时间维度上复制N份，然后除以时间维度的维度N，这样做是为了扩展到3D卷积之后，每一层都仍然获取到类似大小的输出相应。如果不除以N，就会出现输出相应会增大N倍，改变了预训练时网络所学习到的数据分布。</p>
 <p><strong>2.2.2 池化窗口、步长和卷积步长应该怎么设置？</strong></p>
-<p>我们已经把2D卷积核扩展成为了3D卷积核。但是2D池化窗口 <img src="https://www.zhihu.com/equation?tex=k+%5Ctimes+k" alt="[公式]"> ，2D池化步长 <img src="https://www.zhihu.com/equation?tex=s_p+%5Ctimes+s_p" alt="[公式]"> ，2D卷积核的步长 <img src="https://www.zhihu.com/equation?tex=s_c+%5Ctimes+s_c" alt="[公式]"> 应该怎么扩展到3D？</p>
-<p>一个自然的想法是向卷积核一样，把2D <img src="https://www.zhihu.com/equation?tex=k+%5Ctimes+k" alt="[公式]"> 的池化窗口直接变成 <img src="https://www.zhihu.com/equation?tex=k+%5Ctimes+k+%5Ctimes+k" alt="[公式]"> ，同理步长也都直接对称的扩展。但是考虑输入图像的高宽，以及时间维度的尺度差异，如果简单的在时间维度也使用相同的池化窗口，则会导致时间维度过快的变化，可能在浅层网络中把不同时间中的边缘特征进行过早的混合，影响空间特征的提取；而如果时间维度的窗口或步长太小，则可能导致不能有效的提取空间动态信息。</p>
+<p>我们已经把2D卷积核扩展成为了3D卷积核。但是2D池化窗口 $$k \times k$$ ，2D池化步长 $$ s_p \times s_p $$，2D卷积核的步长 $$s_c \times s_c$$ 应该怎么扩展到3D？</p>
+<p>一个自然的想法是向卷积核一样，把2D  $$k \times k$$  的池化窗口直接变成  $$k \times k \times k$$  ，同理步长也都直接对称的扩展。但是考虑输入图像的高宽，以及时间维度的尺度差异，如果简单的在时间维度也使用相同的池化窗口，则会导致时间维度过快的变化，可能在浅层网络中把不同时间中的边缘特征进行过早的混合，影响空间特征的提取；而如果时间维度的窗口或步长太小，则可能导致不能有效的提取空间动态信息。</p>
 <p>至于怎么设置池化窗口、步长，还有卷积的步长，主要依赖于视频帧率和输入分辨率。本文作者在Inception-V1中的设置为（如<strong>Fig. 1</strong>所示）：</p>
 <ul>
-<li>前两个池化窗口为 <img src="https://www.zhihu.com/equation?tex=3+%5Ctimes+3" alt="[公式]"> ，步长 <img src="https://www.zhihu.com/equation?tex=2+%5Ctimes+2" alt="[公式]"> 的max pool扩展为池化窗口为 <img src="https://www.zhihu.com/equation?tex=1+%5Ctimes+3+%5Ctimes+3" alt="[公式]"> ，步长为 <img src="https://www.zhihu.com/equation?tex=1+%5Ctimes+2+%5Ctimes+2" alt="[公式]"> 。即不过早的增大时间维度感受野，浅层网络中更加倾向于提取空间特征。</li>
-<li>中间两个池化窗口为 <img src="https://www.zhihu.com/equation?tex=3+%5Ctimes+3" alt="[公式]"> ，步长 <img src="https://www.zhihu.com/equation?tex=2+%5Ctimes+2" alt="[公式]"> 的max pool扩展为池化窗口为 <img src="https://www.zhihu.com/equation?tex=3+%5Ctimes+3+%5Ctimes+3" alt="[公式]"> ，步长为 <img src="https://www.zhihu.com/equation?tex=2+%5Ctimes+2+%5Ctimes+2" alt="[公式]"> 。</li>
-<li>最后一个avg pool的池化窗口扩展为 <img src="https://www.zhihu.com/equation?tex=2+%5Ctimes+7+%5Ctimes+7" alt="[公式]"> 。</li>
+<li>前两个池化窗口为 $$3 \times 3$$ ，步长 $$2 \times 2$$ 的max pool扩展为池化窗口为  ，$$1 \times 3 \times 3$$步长为  。即$$1 \times 2 \times 2$$不过早的增大时间维度感受野，浅层网络中更加倾向于提取空间特征。</li>
+<li>中间两个池化窗口为$$3 \times 3$$，步长 $$2 \times 2$$的max pool扩展为池化窗口为  $$3 \times 3 \times 3$$，步长为 $$2 \times 2 \times 2 $$。</li>
+<li>最后一个avg pool的池化窗口扩展为 $$2 \times 7 \times 7$$ 。</li>
 <li>Inception Module中的池化都扩展为和高、宽维度相同的窗口大小、步长。</li>
 </ul>
 <h3 id="2-3-训练"><a href="#2-3-训练" class="headerlink" title="2.3 训练"></a>2.3 训练</h3><ul>
 <li>双流的两个分支在训练时分别训练，在测试时取平均。</li>
 <li>对于所有的卷积层，都由一个BN和ReLU。</li>
 <li>SGD + momentum&#x3D;0.9</li>
-<li>把视频最短边resize到256，然后random crop <img src="https://www.zhihu.com/equation?tex=224+%5Ctimes+224" alt="[公式]"> ，随机水平翻转。</li>
+<li>把视频最短边resize到256，然后random crop $$224 \times 224$$ ，随机水平翻转。</li>
 <li>如果视频较短，循环视频知道满足输入。</li>
 <li>使用TV-L1算法计算光流。</li>
 </ul>
 <h2 id="3-细节问题"><a href="#3-细节问题" class="headerlink" title="3 细节问题"></a>3 细节问题</h2><h3 id="3-1-2D卷积核（和权重）为什么可以直接复制N次得到3D卷积核？3D卷积的权重为什么要除以N？"><a href="#3-1-2D卷积核（和权重）为什么可以直接复制N次得到3D卷积核？3D卷积的权重为什么要除以N？" class="headerlink" title="3.1 2D卷积核（和权重）为什么可以直接复制N次得到3D卷积核？3D卷积的权重为什么要除以N？"></a>3.1 2D卷积核（和权重）为什么可以直接复制N次得到3D卷积核？3D卷积的权重为什么要除以N？</h3><p>我们首先不考虑使用在Imagenet上的预训练权重来把2D卷积扩展称为3D卷积。那么能直接使用3D卷积在Imagenet上预训练吗？</p>
 <p>假设我们有一个视频片段，其中的物体移动非常慢，几乎没有运动（比如摄像头拍向一块空地）。我们在这段视频中取一些帧出来，比如取16帧，拼接起来作为3D卷积网络的输入。那么我们可以认为取出来的16帧等价于1帧图像复制16份（视频中几乎没有运动）。</p>
 <p>我们按照这个思路来考虑使用Imagenet来直接预训练3D卷积网络，即在Imagenet中取出1张图像，复制16份并拼接作为输入视频（boring video）。然后使用3D卷积来提取特征就可以了。</p>
-<p>我们来拆分一下3D卷积核 <img src="https://www.zhihu.com/equation?tex=h+%5Ctimes+w+%5Ctimes+t" alt="[公式]"> ，分解成 <img src="https://www.zhihu.com/equation?tex=t" alt="[公式]"> 个 <img src="https://www.zhihu.com/equation?tex=h+%5Ctimes+w" alt="[公式]"> 的2D卷积核。这里的 <img src="https://www.zhihu.com/equation?tex=h,+w" alt="[公式]"> 分别是卷积核的高宽， <img src="https://www.zhihu.com/equation?tex=t" alt="[公式]"> 是时间维度的深度，也就是我们把imagenet中的1张图像叠加16份的”16”。 <img src="https://www.zhihu.com/equation?tex=h+%5Ctimes+w" alt="[公式]"> 作用在 <img src="https://www.zhihu.com/equation?tex=t=16" alt="[公式]">上的任意帧时，所提取的空间特征都应该是完全相同的，因为叠加的每一帧都是1张图像复制来的。</p>
+<p>我们来拆分一下3D卷积核 $$h \times w \times t$$ ，分解成$$t$$个$$h \times w$$的2D卷积核。这里的$$h,w$$分别是卷积核的高宽，  是时间$$t$$维度的深度，也就是我们把imagenet中的1张图像叠加16份的”16”。 $$h \times w$$ 作用在$$t=16$$上的任意帧时，所提取的空间特征都应该是完全相同的，因为叠加的每一帧都是1张图像复制来的。</p>
 <p>所以把2D卷积核复制N次得到3D卷积核，等价于把1张静态图像复制拼接为boring video，然后使用3D卷积核去预训练是等价的。</p>
 <p>但是，由2D卷积核预训练权重复制得到的3D卷积核，为什么权重还要除以N？</p>
 <p>还是考虑把imagenet中的1帧图像复制16份拼接成一个boring video。使用2D卷积时，其权重假设分别为:</p>
-<p><img src="https://www.zhihu.com/equation?tex=%5Cbegin+%7Barray%7D%7B1%7D+0.1+&+0.2+&+0.3+%5C%5C+0.4+&+0.5+&+0.6+%5C%5C+0.7+&+0.8+&+0.9+%5C%5C+%5Cend+%7Barray%7D" alt="[公式]"> ，提取特征图上的一块 <img src="https://www.zhihu.com/equation?tex=3+%5Ctimes+3" alt="[公式]"> 区域的像素 <img src="https://www.zhihu.com/equation?tex=%5Cbegin+%7Barray%7D%7B1%7D+x_1+&+x_2+&+x_3+%5C%5C+x_4+&+x_5+&+x_6+%5C%5C+x_7+&+x_8+&+x_9+%5C%5C+%5Cend+%7Barray%7D" alt="[公式]"> ，得到1个输出值 <img src="https://www.zhihu.com/equation?tex=x_%7Bout%7D+=+0.1x_1+++0.2x_2+++0.3x_3+++0.4x_4+++...+++0.9x_9" alt="[公式]"> 。</p>
-<p>如果使用通过2D卷积复制来的3D卷积时，得到的1个输出值为： <img src="https://www.zhihu.com/equation?tex=x_%7Bout%7D+=+3+%5Ctimes+(0.1x_1+++0.2x_2+++0.3x_3+++0.4x_4+++...+++0.9x_9)" alt="[公式]"> ，则改变了下一层卷积的输入特征响应激活值了，所以要对2D卷积核的权重进行归一化， 即除以N。</p>
+<p><img src="https://www.zhihu.com/equation?tex=%5Cbegin+%7Barray%7D%7B1%7D+0.1+&+0.2+&+0.3+%5C%5C+0.4+&+0.5+&+0.6+%5C%5C+0.7+&+0.8+&+0.9+%5C%5C+%5Cend+%7Barray%7D" alt="[公式]"> </p>
+<p>提取特征图上的一块 $$3 \times 3$$ 区域的像素</p>
+<p> <img src="https://www.zhihu.com/equation?tex=%5Cbegin+%7Barray%7D%7B1%7D+x_1+&+x_2+&+x_3+%5C%5C+x_4+&+x_5+&+x_6+%5C%5C+x_7+&+x_8+&+x_9+%5C%5C+%5Cend+%7Barray%7D" alt="[公式]"> </p>
+<p>得到1个输出值</p>
+<p> <img src="https://www.zhihu.com/equation?tex=x_%7Bout%7D+=+0.1x_1+++0.2x_2+++0.3x_3+++0.4x_4+++...+++0.9x_9" alt="[公式]"></p>
+<p>如果使用通过2D卷积复制来的3D卷积时，得到的1个输出值为： <img src="https://www.zhihu.com/equation?tex=x_%7Bout%7D+=+3+%5Ctimes+(0.1x_1+++0.2x_2+++0.3x_3+++0.4x_4+++...+++0.9x_9)" alt="[公式]"> </p>
+<p>则改变了下一层卷积的输入特征响应激活值了，所以要对2D卷积核的权重进行归一化， 即除以N。</p>
 <h3 id="3-2-作者使用基于3D卷积的双流网络，为什么不直接使用3D网络，而是引入额外的光流输入？"><a href="#3-2-作者使用基于3D卷积的双流网络，为什么不直接使用3D网络，而是引入额外的光流输入？" class="headerlink" title="3.2 作者使用基于3D卷积的双流网络，为什么不直接使用3D网络，而是引入额外的光流输入？"></a>3.2 作者使用基于3D卷积的双流网络，为什么不直接使用3D网络，而是引入额外的光流输入？</h3><p><img src="https://pic2.zhimg.com/80/v2-4e82002d38eed0231c0e382abf0a5201_720w.jpg" alt="img"></p>
 <h2 id="4-实验结果"><a href="#4-实验结果" class="headerlink" title="4 实验结果"></a>4 实验结果</h2><h3 id="4-1-Imagenet预训练"><a href="#4-1-Imagenet预训练" class="headerlink" title="4.1 Imagenet预训练"></a>4.1 Imagenet预训练</h3><p><img src="https://pic1.zhimg.com/80/v2-99f39d00e26bd8af45b85aa85009f60c_720w.jpg" alt="img"></p>
 <p>可以发现，ImageNet then Kinetics中，准确率都有提高。</p>
@@ -356,11 +370,11 @@
 </ul>
 <h3 id="attention和全连接层的区别"><a href="#attention和全连接层的区别" class="headerlink" title="attention和全连接层的区别"></a>attention和全连接层的区别</h3><p>从结果上看，Attention的最终输出可以看成是一个“在关注部分权重更大的全连接层”。但是它与全连接层的区别在于，注意力机制可以利用输入的特征信息来确定哪些部分更重要。</p>
 <p>举个例子：</p>
-<p>输入层有A,B,C三个特征向量，我们需要构造一层网络来确定三者的权重，然后加权求和得到输出O。也就是得到三个权重 <img src="https://www.zhihu.com/equation?tex=w_A,w_B,w_C" alt="[公式]"> ，然后得到 </p>
+<p>输入层有A,B,C三个特征向量，我们需要构造一层网络来确定三者的权重，然后加权求和得到输出O。也就是得到三个权重 $$ w_A, w_B, w_C $$ ，然后得到 </p>
 <p><img src="https://www.zhihu.com/equation?tex=O=w_AA+w_BB+w_CC" alt="[公式]"> 。</p>
 <p>这个式子形式上看上去确实是全连接层没错。然而如果用全连接层有什么问题呢？</p>
-<p><strong>问题就在于在全连接层里， <img src="https://www.zhihu.com/equation?tex=w_A,w_B,w_C" alt="[公式]"> 是根据位置确定的。</strong>我第一次给你三个数据ABC，然后你得出了B最重要，也就是让 <img src="https://www.zhihu.com/equation?tex=w_B" alt="[公式]"> 最大。然而我下次给你的顺序可能是BAC，这次A在刚才B的位置，如果你用全连接层来实现的话，得出的结果就会变成 <img src="https://www.zhihu.com/equation?tex=O=w_AB+w_BA+w_CC" alt="[公式]"> 。这就变成了A最重要了，这显然不是我们想要的结果。</p>
-<p>那么如何解决这个问题呢？我们就要根据实体自身的特征，而不是它们的位置来确定它们的重要程度。也就是说， <img src="https://www.zhihu.com/equation?tex=w_A,w_B,w_C" alt="[公式]"> 不该是固定的，而是要与A,B,C的值相关。简单考虑，也就是要定义一个函数f，令</p>
+<p><strong>问题就在于在全连接层里， $$ w_A, w_B, w_C $$  是根据位置确定的。</strong>我第一次给你三个数据ABC，然后你得出了B最重要，也就是让 $$w_B$$ 最大。然而我下次给你的顺序可能是BAC，这次A在刚才B的位置，如果你用全连接层来实现的话，得出的结果就会变成 <img src="https://www.zhihu.com/equation?tex=O=w_AB+w_BA+w_CC" alt="[公式]"> 。这就变成了A最重要了，这显然不是我们想要的结果。</p>
+<p>那么如何解决这个问题呢？我们就要根据实体自身的特征，而不是它们的位置来确定它们的重要程度。也就是说，  $$ w_A, w_B, w_C $$ 不该是固定的，而是要与A,B,C的值相关。简单考虑，也就是要定义一个函数f，令</p>
 <p><img src="https://www.zhihu.com/equation?tex=w_A=f(A),w_B=f(B),w_C=f(C)" alt="[公式]"> 。</p>
 <p>于是我们就给每个实体分配了一个与它们的位置无关的权重。<strong>这里的函数f就是我们所说的注意力机制。</strong>注意力机制f的定义方式有很多种，但是不属于这个问题的范围，这里我就不讨论了。</p>
 <p>我们最终得出的输出为</p>
